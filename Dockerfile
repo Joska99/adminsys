@@ -1,7 +1,8 @@
 FROM python:3-slim
 
 WORKDIR /app
-COPY server.py index.html styles.css app.js ./
+COPY server.py index.html styles.css ./
+COPY js/ ./js/
 COPY readers/ ./readers/
 
 ENV DATA_ROOT=/data \

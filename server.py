@@ -30,7 +30,6 @@ INDEX_PATH = os.path.join(HERE, "index.html")
 # Whitelisted static assets (exact route -> content type). Avoids path traversal.
 STATIC_FILES = {
     "/styles.css": "text/css; charset=utf-8",
-    "/app.js": "text/javascript; charset=utf-8",
 }
 
 
@@ -170,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_cron_run(parsed.query)
         elif route in STATIC_FILES:
             self._send_file(os.path.join(HERE, route.lstrip("/")), STATIC_FILES[route])
+        elif route.startswith("/js/") and re.match(r"^[A-Za-z0-9_-]+\.js$", route[4:]):
+            self._send_file(os.path.join(HERE, "js", route[4:]), "text/javascript; charset=utf-8")
         else:
             self.send_error(404, "Not found")
 
