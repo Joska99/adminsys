@@ -1,0 +1,15 @@
+# python
+__pycache__/
+*.pyc
+
+# secrets / env
+.env
+*.env
+
+# templates / large reference assets
+UI/*.zip
+UI/*.make
+
+# editor / os
+.DS_Store
+/tmp/

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hermes Mission Control</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="crt-glow"></div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="logo-txt"><span class="logo-prompt">#_</span>ADMIN.SYS</span>
+    </div>
+    <nav id="tabs">
+      <button class="tabbtn active" data-tab="overview"><span class="ic"></span>Overview</button>
+      <button class="tabbtn" data-tab="agents"><span class="ic"></span>Agents</button>
+      <button class="tabbtn" data-tab="schedule"><span class="ic"></span>Cron</button>
+      <button class="tabbtn" data-tab="tasks"><span class="ic"></span>Tasks</button>
+      <button class="tabbtn" data-tab="sessions"><span class="ic"></span>Sessions</button>
+      <button class="tabbtn" data-tab="logs"><span class="ic"></span>Logs</button>
+    </nav>
+    <div class="side-foot">
+      <div class="row"><span class="dot" id="livedot"></span> live feed</div>
+      <div class="row"><span class="pill mono" id="agentcount">0 agents</span></div>
+    </div>
+  </aside>
+
+  <div class="content">
+    <header>
+      <div class="sysbrand">
+        <span class="prompt">#_</span>
+        <div class="sysbrand-txt">
+          <div class="sysbrand-1">ADMIN.SYS</div>
+          <div class="sysbrand-2">version: <span id="appver">—</span></div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <span class="mono" style="font-size:0.75rem;color:var(--muted)">filters</span>
+      <div class="hfilters">
+        <button id="f-active" class="filterbtn mono">running</button>
+        <button id="f-stopped" class="filterbtn mono">stopped</button>
+      </div>
+      <span class="hsep">|</span>
+      <span class="mono" style="font-size:0.75rem;color:var(--muted)">agents</span>
+      <div id="agentdd" class="agentdd">
+        <button id="agentdd-btn" class="ddbtn mono" type="button">all ▾</button>
+        <div id="agentdd-panel" class="ddpanel" hidden></div>
+      </div>
+    </header>
+
+<main>
+  <section class="tab active" id="tab-overview"></section>
+  <section class="tab" id="tab-agents"></section>
+  <section class="tab" id="tab-tasks"></section>
+  <section class="tab" id="tab-schedule"></section>
+  <section class="tab" id="tab-sessions"></section>
+  <section class="tab" id="tab-logs"></section>
+</main>
+  </div>
+</div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

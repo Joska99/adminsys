@@ -1,0 +1,18 @@
+services:
+  mission-control:
+    build: .
+    container_name: hermes-mission-control
+    restart: unless-stopped
+    ports:
+      # localhost-only on the host; container listens on 1999
+      - "127.0.0.1:1999:1999"
+    environment:
+      DATA_ROOT: /data
+      PORT: "1999"
+      SSE_INTERVAL: "5"
+      APP_VERSION: "1.0.0"
+    volumes:
+      # Mount each agent home read-only, one by one, as agents are onboarded.
+      # The folder name under /data becomes the agent name in the dashboard.
+      - ../_AGENT/HERMES_CC_DATA:/data/hermes-cc:ro
+      - ../_AGENT/HERMES_NEWS_DATA:/data/hermes-news:ro
