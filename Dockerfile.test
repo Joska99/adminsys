@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+# Test image: all three tiers (python unittest + node render smoke + playwright
+# browser e2e). Layers are ordered by change frequency so editing source never
+# re-runs npm install or the chromium download.
+FROM node:20-bookworm-slim
+
+# 1. system deps — rarely change. apt cache kept in a BuildKit cache mount.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+      python3 ca-certificates
+
+WORKDIR /app
+
+# 2. e2e deps — keyed ONLY on package.json, so source edits don't bust them.
+COPY tests/e2e/package.json tests/e2e/package.json
+RUN --mount=type=cache,target=/root/.npm \
+    cd tests/e2e && npm install
+
+# 3. browser + its libs — own layer, only re-runs if package.json changed.
+RUN cd tests/e2e && ./node_modules/.bin/playwright install --with-deps chromium
+
+# 4. source — changes often, cheap final layer (node_modules excluded via
+#    .dockerignore, so the deps layer above is preserved).
+COPY . .
+
+# run all tiers via the plain script (no make inside the container).
+#
+# Run a subset by overriding the command:
+#   docker run --rm adminsys-test                                         # all tiers
+#   docker run --rm adminsys-test bash tests/run.sh py                    # python only
+#   docker run --rm adminsys-test bash tests/run.sh render                # render smoke only
+#   docker run --rm adminsys-test bash tests/run.sh e2e                   # all browser specs
+#   docker run --rm adminsys-test bash tests/run.sh e2e custom_ui.spec.js # one spec
+#   docker run --rm adminsys-test bash tests/run.sh e2e -g custom_ui_test # by test-name grep
+CMD ["bash", "tests/run.sh"]

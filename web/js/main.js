@@ -1,11 +1,13 @@
 import { $, SNAP, SELECTED, UI, agents, syncAgentFilter, goTab, setSnap, esc, sortRows } from "./core.js";
 import { renderOverview } from "./render-overview.js";
-import { renderAgents, renderTasks, renderSchedule, renderSessions, renderLogs } from "./render-tabs.js";
+import { renderAgents, renderProfiles, renderTasks, renderSchedule, renderSessions, renderLogs } from "./render-tabs.js";
 
 function renderAll() {
   $("agentcount").textContent = (SNAP.agent_count || 0) + " agents";
+  const pc = (SNAP.agents || []).reduce((n, a) => n + (((a.profiles || {}).profiles || []).length), 0);
+  $("profilecount").textContent = pc + " profiles";
   const av = document.getElementById("appver"); if (av) av.textContent = SNAP.version || "dev";
-  renderOverview(); renderAgents(); renderTasks(); renderSchedule(); renderSessions(); renderLogs();
+  renderOverview(); renderAgents(); renderProfiles(); renderTasks(); renderSchedule(); renderSessions(); renderLogs();
 }
 
 
@@ -89,6 +91,13 @@ $("f-stopped").addEventListener("click", () => {
   $("f-stopped").classList.toggle("on", UI.fStopped);
   renderAll();
 });
+$("f-clear").addEventListener("click", () => {
+  UI.fActive = false;
+  UI.fStopped = false;
+  $("f-active").classList.remove("on");
+  $("f-stopped").classList.remove("on");
+  renderAll();
+});
 
 /* clock + live countdown refresh on Schedule tab */
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -102,8 +111,8 @@ function startSSE() {
   try {
     const es = new EventSource("/events");
     es.onmessage = (ev) => { try { applySnapshot(JSON.parse(ev.data)); } catch (e) {} };
-    es.onerror = () => { $("livedot").style.background = "var(--gold)"; };
-    es.onopen = () => { $("livedot").style.background = "var(--green)"; };
+    es.onerror = () => { $("livedot").style.setProperty("--dot-c", "var(--red)"); };
+    es.onopen = () => { $("livedot").style.setProperty("--dot-c", "var(--green)"); };
   } catch (e) { pollFallback(); }
 }
 function pollFallback() {

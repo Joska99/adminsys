@@ -17,15 +17,12 @@
     <nav id="tabs">
       <button class="tabbtn active" data-tab="overview"><span class="ic"></span>Overview</button>
       <button class="tabbtn" data-tab="agents"><span class="ic"></span>Agents</button>
+      <button class="tabbtn" data-tab="profiles"><span class="ic"></span>Profiles</button>
       <button class="tabbtn" data-tab="schedule"><span class="ic"></span>Cron</button>
       <button class="tabbtn" data-tab="tasks"><span class="ic"></span>Tasks</button>
       <button class="tabbtn" data-tab="sessions"><span class="ic"></span>Sessions</button>
       <button class="tabbtn" data-tab="logs"><span class="ic"></span>Logs</button>
     </nav>
-    <div class="side-foot">
-      <div class="row"><span class="dot" id="livedot"></span> live feed</div>
-      <div class="row"><span class="pill mono" id="agentcount">0 agents</span></div>
-    </div>
   </aside>
 
   <div class="content">
@@ -37,11 +34,20 @@
           <div class="sysbrand-2">version: <span id="appver">—</span></div>
         </div>
       </div>
+      <span class="hsep">|</span>
+      <div class="hstatus-col">
+        <div class="hstatus"><span class="dot" id="livedot"></span> live feed</div>
+        <div class="hbadges">
+          <span class="pill mono" id="agentcount">0 agents</span>
+          <span class="pill mono" id="profilecount">0 profiles</span>
+        </div>
+      </div>
       <div class="spacer"></div>
       <span class="mono" style="font-size:0.75rem;color:var(--muted)">filters</span>
       <div class="hfilters">
         <button id="f-active" class="filterbtn mono">running</button>
         <button id="f-stopped" class="filterbtn mono">stopped</button>
+        <button id="f-clear" class="filterbtn mono">clear</button>
       </div>
       <span class="hsep">|</span>
       <span class="mono" style="font-size:0.75rem;color:var(--muted)">agents</span>
@@ -54,6 +60,7 @@
 <main>
   <section class="tab active" id="tab-overview"></section>
   <section class="tab" id="tab-agents"></section>
+  <section class="tab" id="tab-profiles"></section>
   <section class="tab" id="tab-tasks"></section>
   <section class="tab" id="tab-schedule"></section>
   <section class="tab" id="tab-sessions"></section>

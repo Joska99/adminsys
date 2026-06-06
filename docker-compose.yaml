@@ -1,7 +1,7 @@
 services:
-  mission-control:
+  adminsys:
     build: .
-    container_name: hermes-mission-control
+    container_name: adminsys
     restart: unless-stopped
     ports:
       # localhost-only on the host; container listens on 1999
@@ -14,5 +14,5 @@ services:
     volumes:
       # Mount each agent home read-only, one by one, as agents are onboarded.
       # The folder name under /data becomes the agent name in the dashboard.
-      - ../_AGENT/HERMES_CC_DATA:/data/hermes-cc:ro
-      - ../_AGENT/HERMES_NEWS_DATA:/data/hermes-news:ro
+      - ${AGNET1}:/data/hermes-cc:ro
+      - ${AGNET2}:/data/hermes-news:ro

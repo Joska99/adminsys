@@ -1,4 +1,4 @@
-"""Gateway status reader: parses <agent>/gateway_state.json."""
+"""Gateway status reader: parses <agent>/gateway_state.json (main profile)."""
 
 import json
 import os

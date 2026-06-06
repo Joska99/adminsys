@@ -7,9 +7,16 @@ __pycache__/
 *.env
 
 # templates / large reference assets
-UI/*.zip
-UI/*.make
+assets/*.zip
+assets/*.make
 
 # editor / os
 .DS_Store
 /tmp/
+
+# e2e (playwright) — heavy, opt-in
+tests/e2e/node_modules/
+tests/e2e/.fixture/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+package-lock.json

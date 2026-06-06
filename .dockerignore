@@ -1,0 +1,11 @@
+.git
+**/__pycache__
+*.pyc
+# installed locally on the host — reinstalled cleanly inside the image
+tests/e2e/node_modules
+tests/e2e/.fixture
+tests/e2e/test-results
+tests/e2e/playwright-report
+assets/*.zip
+assets/*.make
+*.env

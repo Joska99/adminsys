@@ -18,18 +18,6 @@ export function renderAgents() {
     </div>`;
   }).join("") || `<div class="empty">No agents.</div>`;
 
-  const discHtml = list.map(a => {
-    const c = a.channels || {};
-    if (c.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><div class="empty">no discord directory</div></div>`;
-    const chList = (c.channels || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
-    const dmList = (c.dms || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
-    return `<div class="panel">
-      <h3><span class="agentname">${esc(a.name)}</span></h3>
-      <table class="discord-tbl"><thead><tr><th>channels</th><th>dms</th><th>threads</th></tr></thead>
-      <tbody><tr><td>${chList}</td><td>${dmList}</td><td class="mono">${c.thread_count || 0}</td></tr></tbody></table>
-    </div>`;
-  }).join("");
-
   const memHtml = list.map(a => {
     const m = a.memory || {};
     if (m.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><div class="empty">no memory</div></div>`;
@@ -50,11 +38,35 @@ export function renderAgents() {
   $("tab-agents").innerHTML = `
     <div class="grid">${profHtml}</div>
     <div class="midline"></div>
-    ${head("DISCORD", "channels · dms · threads")}<div class="grid">${discHtml}</div>
-    <div class="midline"></div>
     ${head("SKILLS USAGE", "active skills · uses per skill")}<div class="grid">${skHtml}</div>
     <div class="midline"></div>
     ${head("MEMORY", "MEMORY.md · USER.md")}<div class="grid">${memHtml}</div>`;
+}
+
+/* ---------- Profiles (per-profile detail) ---------- */
+export function renderProfiles() {
+  const list = agents();
+  const html = list.map(a => {
+    const p = a.profiles || {};
+    if (p.available === false) {
+      return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3>${errLine(p)}<div class="empty">no profiles</div></div>`;
+    }
+    const profs = p.profiles || [];
+    const blocks = profs.map(pr => {
+      const ch = pr.channels || {};
+      const chList = (ch.channels || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
+      const dmList = (ch.dms || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
+      return `<div class="profblock">
+        <div class="profhdr"><span class="mono pname">${esc(pr.name)}</span><span class="pill mono">${esc(pr.model || "—")}</span></div>
+        <table class="discord-tbl"><thead><tr><th>channels</th><th>dms</th><th>threads</th></tr></thead>
+        <tbody><tr><td>${chList}</td><td>${dmList}</td><td class="mono">${ch.threads || 0}</td></tr></tbody></table>
+      </div>`;
+    }).join("") || `<div class="empty">no profiles</div>`;
+    return `<div class="panel">
+      <h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono">${profs.length} profiles</span></h3>
+      ${errLine(p)}${blocks}</div>`;
+  }).join("") || `<div class="empty">No agents.</div>`;
+  $("tab-profiles").innerHTML = `<div class="grid">${html}</div>`;
 }
 
 /* ---------- Tasks (kanban runs) ---------- */

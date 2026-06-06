@@ -5,6 +5,7 @@ is treated as a single default profile. config.yaml is read with a tiny
 tolerant scan (no PyYAML in the stdlib); only the default model is extracted.
 """
 
+import glob
 import json
 import os
 
@@ -67,11 +68,29 @@ def _channels(base_path):
     return {"channels": channels, "dms": dms, "threads": threads}
 
 
+def _gw_state(base_path):
+    """gateway_state from this profile's own gateway_state.json, or None."""
+    try:
+        with open(os.path.join(base_path, "gateway_state.json"), "r", encoding="utf-8") as fh:
+            return json.load(fh).get("gateway_state")
+    except (OSError, ValueError):
+        return None
+
+
+def _session_count(base_path):
+    try:
+        return len(glob.glob(os.path.join(base_path, "sessions", "*.jsonl")))
+    except OSError:
+        return 0
+
+
 def _profile(name, base_path):
     return {
         "name": name,
         "model": _model_from_config(os.path.join(base_path, "config.yaml")),
         "channels": _channels(base_path),
+        "state": _gw_state(base_path),
+        "sessions": _session_count(base_path),
     }
 
 

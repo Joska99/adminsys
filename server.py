@@ -25,7 +25,8 @@ SSE_INTERVAL = int(os.environ.get("SSE_INTERVAL", "5"))
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-INDEX_PATH = os.path.join(HERE, "index.html")
+WEB = os.path.join(HERE, "web")          # browser-served files (html/css/js)
+INDEX_PATH = os.path.join(WEB, "index.html")
 
 # Whitelisted static assets (exact route -> content type). Avoids path traversal.
 STATIC_FILES = {
@@ -168,9 +169,9 @@ class Handler(BaseHTTPRequestHandler):
         elif route == "/api/cron-run":
             self._serve_cron_run(parsed.query)
         elif route in STATIC_FILES:
-            self._send_file(os.path.join(HERE, route.lstrip("/")), STATIC_FILES[route])
+            self._send_file(os.path.join(WEB, route.lstrip("/")), STATIC_FILES[route])
         elif route.startswith("/js/") and re.match(r"^[A-Za-z0-9_-]+\.js$", route[4:]):
-            self._send_file(os.path.join(HERE, "js", route[4:]), "text/javascript; charset=utf-8")
+            self._send_file(os.path.join(WEB, "js", route[4:]), "text/javascript; charset=utf-8")
         else:
             self.send_error(404, "Not found")
 
