@@ -1,6 +1,7 @@
 services:
   adminsys:
     build: .
+    image: adminsys
     container_name: adminsys
     restart: unless-stopped
     ports:
@@ -15,4 +16,9 @@ services:
       # Mount each agent home read-only, one by one, as agents are onboarded.
       # The folder name under /data becomes the agent name in the dashboard.
       - ${AGNET1}:/data/hermes-cc:ro
-      - ${AGNET2}:/data/hermes-news:ro
+      - ${AGNET2}:/data/hermes-ca:ro
+      - ${AGNET3}:/data/hermes-cg:ro
+      - ${AGNET4}:/data/hermes-news:ro
+    deploy:
+      resources:
+        limits: { memory: 254Mb, cpus: "1.0" }

@@ -7,10 +7,10 @@ try/except so a single failing source never crashes the snapshot.
 
 from . import (
     discovery, gateway, kanban, cron, sessions, profiles, skills,
-    logs, memory, channels, tokens,
+    logs, memory, soul, channels, tokens,
 )
 
 __all__ = [
     "discovery", "gateway", "kanban", "cron", "sessions", "profiles", "skills",
-    "logs", "memory", "channels", "tokens",
+    "logs", "memory", "soul", "channels", "tokens",
 ]

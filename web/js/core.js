@@ -115,3 +115,16 @@ export function nextCronRel() {
 }
 export function setSnap(d){ SNAP = d; }
 
+// last time a snapshot was applied (for the "● live · updated Xs ago" indicator)
+export let LAST_UPDATE = 0;
+export function markUpdated(){ LAST_UPDATE = Date.now(); }
+
+// an agent is "session-stale" if its newest session is older than this
+export const SESSION_STALE_MS = 24 * 60 * 60 * 1000;
+export function sessionAge(startedAt){
+  if (!startedAt) return null;
+  const t = Date.parse(startedAt);
+  return isNaN(t) ? null : (Date.now() - t);
+}
+export function fmtUsd(v){ return "$" + (Number(v) || 0).toFixed(2); }
+

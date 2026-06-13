@@ -8,6 +8,8 @@ tolerant scan (no PyYAML in the stdlib); only the default model is extracted.
 import glob
 import json
 import os
+import re
+import sqlite3
 
 
 def _model_from_config(config_path):
@@ -78,19 +80,89 @@ def _gw_state(base_path):
 
 
 def _session_count(base_path):
+    """Session count for one profile. Prefer state.db (current Hermes), fall
+    back to legacy sessions/*.jsonl — same precedence as the sessions reader,
+    so the per-profile count doesn't freeze when an agent migrates to SQLite."""
+    db_path = os.path.join(base_path, "state.db")
+    if os.path.isfile(db_path):
+        for uri in ("file:{}?mode=ro".format(db_path),
+                    "file:{}?immutable=1".format(db_path)):
+            try:
+                con = sqlite3.connect(uri, uri=True, timeout=2)
+                try:
+                    return con.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+                finally:
+                    con.close()
+            except sqlite3.Error:
+                continue
     try:
         return len(glob.glob(os.path.join(base_path, "sessions", "*.jsonl")))
     except OSError:
         return 0
 
 
+def _description(base_path):
+    """`description` from this profile's profile.yaml (tolerant, no PyYAML)."""
+    path = os.path.join(base_path, "profile.yaml")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    m = re.search(r"^description:\s*(.*?)(?:^[A-Za-z0-9_]+:|\Z)", text, re.S | re.M)
+    if not m:
+        return None
+    raw = m.group(1).strip()
+    raw = re.sub(r"\\\s*\n\s*", "", raw)        # YAML line-continuations
+    raw = re.sub(r"\s*\n\s*", " ", raw).strip()  # collapse wraps
+    if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+        raw = raw[1:-1]
+    raw = re.sub(r"\\u([0-9a-fA-F]{4})", lambda x: chr(int(x.group(1), 16)), raw)
+    raw = raw.replace('\\"', '"').replace("\\ ", " ").replace("\\\\", "\\")
+    raw = re.sub(r"\s{2,}", " ", raw).strip()
+    return raw or None
+
+
+def _skills(base_path):
+    """Per-profile skill inventory: total + per-category counts.
+
+    Layout is skills/<category>/<skill>/SKILL.md.
+    """
+    sk_dir = os.path.join(base_path, "skills")
+    cats, total = [], 0
+    try:
+        names = sorted(os.listdir(sk_dir))
+    except OSError:
+        return {"count": 0, "categories": []}
+    for cat in names:
+        cdir = os.path.join(sk_dir, cat)
+        if not os.path.isdir(cdir) or cat.startswith("."):
+            continue
+        n = 0
+        try:
+            for s in os.listdir(cdir):
+                if os.path.isfile(os.path.join(cdir, s, "SKILL.md")):
+                    n += 1
+        except OSError:
+            continue
+        if n:
+            cats.append({"name": cat, "count": n})
+            total += n
+    cats.sort(key=lambda x: (-x["count"], x["name"]))
+    return {"count": total, "categories": cats}
+
+
 def _profile(name, base_path):
     return {
         "name": name,
         "model": _model_from_config(os.path.join(base_path, "config.yaml")),
+        "description": _description(base_path),
+        "has_profile": os.path.isfile(os.path.join(base_path, "profile.yaml")),
+        "has_soul": os.path.isfile(os.path.join(base_path, "SOUL.md")),
         "channels": _channels(base_path),
         "state": _gw_state(base_path),
         "sessions": _session_count(base_path),
+        "skills": _skills(base_path),
     }
 
 

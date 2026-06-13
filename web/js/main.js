@@ -1,4 +1,4 @@
-import { $, SNAP, SELECTED, UI, agents, syncAgentFilter, goTab, setSnap, esc, sortRows } from "./core.js";
+import { $, SNAP, SELECTED, UI, agents, syncAgentFilter, goTab, setSnap, esc, sortRows, markUpdated, LAST_UPDATE } from "./core.js";
 import { renderOverview } from "./render-overview.js";
 import { renderAgents, renderProfiles, renderTasks, renderSchedule, renderSessions, renderLogs } from "./render-tabs.js";
 
@@ -14,12 +14,22 @@ function renderAll() {
 let LAST_SIG = "";
 function applySnapshot(data) {
   setSnap(data || { agents: [] });
+  markUpdated();                  // even when data is unchanged: proves polling is alive
   syncAgentFilter();
   const sig = JSON.stringify(SNAP.agents);
   if (sig === LAST_SIG) return;   // no data change -> keep DOM + interaction state
   LAST_SIG = sig;
   renderAll();
 }
+
+// "updated Xs ago" ticker — runs every second, independent of data-change renders
+setInterval(() => {
+  const el = $("live-ago");
+  if (!el || !LAST_UPDATE) return;
+  const s = Math.round((Date.now() - LAST_UPDATE) / 1000);
+  el.textContent = s + "s ago";
+  el.classList.toggle("stale", s > 30);   // SSE/poll stalled if no update >30s
+}, 1000);
 
 
 document.addEventListener("click", (e) => {
@@ -98,6 +108,28 @@ $("f-clear").addEventListener("click", () => {
   $("f-stopped").classList.remove("on");
   renderAll();
 });
+
+/* dark / light theme toggle (persisted; initial class set inline in <head>) */
+const themeBtn = $("theme-toggle");
+function syncThemeLabel() {
+  if (themeBtn) themeBtn.textContent =
+    document.documentElement.classList.contains("dark") ? "light" : "dark";
+}
+syncThemeLabel();
+if (themeBtn) themeBtn.addEventListener("click", () => {
+  const dark = document.documentElement.classList.toggle("dark");
+  try { localStorage.theme = dark ? "dark" : "light"; } catch (e) {}
+  syncThemeLabel();
+});
+
+/* jump-to-top button — appears after scrolling down */
+const toTop = $("to-top");
+if (toTop) {
+  const onScroll = () => toTop.classList.toggle("show", window.scrollY > 300);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+}
 
 /* clock + live countdown refresh on Schedule tab */
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];

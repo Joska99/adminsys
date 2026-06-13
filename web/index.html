@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Hermes Mission Control</title>
+<script>try{if(localStorage.theme==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -36,7 +37,7 @@
       </div>
       <span class="hsep">|</span>
       <div class="hstatus-col">
-        <div class="hstatus"><span class="dot" id="livedot"></span> live feed</div>
+        <div class="hstatus"><span class="dot" id="livedot"></span> live feed · updated <span id="live-ago">just now</span></div>
         <div class="hbadges">
           <span class="pill mono" id="agentcount">0 agents</span>
           <span class="pill mono" id="profilecount">0 profiles</span>
@@ -55,6 +56,8 @@
         <button id="agentdd-btn" class="ddbtn mono" type="button">all ▾</button>
         <div id="agentdd-panel" class="ddpanel" hidden></div>
       </div>
+      <span class="hsep">|</span>
+      <button id="theme-toggle" class="filterbtn mono" type="button" title="toggle light / dark theme">dark</button>
     </header>
 
 <main>
@@ -68,6 +71,8 @@
 </main>
   </div>
 </div>
+
+<button id="to-top" class="to-top mono" type="button" title="jump to top" aria-label="jump to top">↑ top</button>
 
 <script type="module" src="/js/main.js"></script>
 </body>

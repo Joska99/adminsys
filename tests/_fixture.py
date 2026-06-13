@@ -98,14 +98,18 @@ def build(root):
         {"type": "thread", "name": "t", "id": "3"},
     ]}, "updated_at": PAST})
 
-    # sub-profile beta: own config/gateway/channels/cron, no sessions
+    # sub-profile beta: own config/gateway/channels/cron, description + a skill
     b = os.path.join(a, "profiles", "beta")
     _w(os.path.join(b, "config.yaml"), "model:\n  default: beta-model\n")
+    _w(os.path.join(b, "profile.yaml"),
+       'description: "Beta sub-profile for tests"\ndescription_auto: false\n')
+    _w(os.path.join(b, "SOUL.md"), "# Beta\n\nBeta persona soul text.")
     _json(os.path.join(b, "gateway_state.json"), {"gateway_state": "stopped"})
     _json(os.path.join(b, "channel_directory.json"), {"platforms": {"discord": [
         {"type": "channel", "name": "news", "id": "9"},
     ]}})
     _json(os.path.join(b, "cron", "jobs.json"), {"jobs": [{"id": "job2", "name": "hourly"}]})
+    _w(os.path.join(b, "skills", "research", "demo", "SKILL.md"), "---\nname: demo\n---\n")
 
     # a plain folder with no hermes files (discovered, all readers unavailable)
     os.makedirs(os.path.join(root, "empty"), exist_ok=True)

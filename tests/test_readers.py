@@ -5,7 +5,10 @@ Run: python3 -m unittest tests.test_readers   (from the project root)
 
 import os
 import shutil
+import sqlite3
 import sys
+import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -15,8 +18,29 @@ sys.path.insert(0, ROOT)
 import _fixture  # noqa: E402  (tests dir on path via discover)
 from readers import (  # noqa: E402
     discovery, gateway, kanban, cron, sessions, profiles, skills,
-    logs, memory, channels, tokens,
+    logs, memory, soul, channels, tokens,
 )
+
+
+def _state_db(path, rows):
+    """Write a minimal Hermes-style state.db `sessions` table.
+
+    rows: list of (source, started_at_unix, input_tokens, output_tokens, cost).
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE sessions (id TEXT, started_at INTEGER, message_count INTEGER, "
+        "title TEXT, model TEXT, source TEXT, ended_at INTEGER, "
+        "estimated_cost_usd REAL, input_tokens INTEGER, output_tokens INTEGER)")
+    conn.executemany(
+        "INSERT INTO sessions (id, started_at, message_count, title, model, source, "
+        "ended_at, estimated_cost_usd, input_tokens, output_tokens) "
+        "VALUES (?,?,1,'t','m',?,?,?,?,?)",
+        [(f"s{i}", r[1], r[0], None, r[4], r[2], r[3]) for i, r in enumerate(rows)],
+    )
+    conn.commit()
+    conn.close()
 
 
 class ReaderTests(unittest.TestCase):
@@ -56,6 +80,8 @@ class ReaderTests(unittest.TestCase):
         failed = next(r for r in k["runs"] if r["status"] == "failed")
         self.assertEqual(failed["error"], "boom")
         self.assertEqual(len(k["tasks"]), 1)
+        self.assertEqual(k["tasks_total"], 1)   # COUNT(*), not capped list len
+        self.assertEqual(k["runs_total"], 2)
 
     def test_kanban_unavailable(self):
         self.assertFalse(kanban.read(self.empty)["available"])
@@ -95,6 +121,14 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(by["beta"]["model"], "beta-model")
         self.assertEqual(by["beta"]["state"], "stopped")
         self.assertEqual(by["beta"]["sessions"], 0)
+        self.assertEqual(by["beta"]["description"], "Beta sub-profile for tests")
+        self.assertTrue(by["beta"]["has_soul"])
+        self.assertFalse(by["main"]["has_soul"])  # root fixture has no SOUL.md
+        self.assertTrue(by["beta"]["has_profile"])
+        self.assertFalse(by["main"]["has_profile"])  # root has no profile.yaml
+        self.assertEqual(by["beta"]["skills"]["count"], 1)
+        self.assertEqual(by["beta"]["skills"]["categories"], [{"name": "research", "count": 1}])
+        self.assertIsNone(by["main"]["description"])  # root has no profile.yaml
 
     def test_default_model_helper(self):
         self.assertEqual(profiles.agent_default_model(self.alpha), "test-model")
@@ -121,8 +155,8 @@ class ReaderTests(unittest.TestCase):
     def test_memory(self):
         m = memory.read(self.alpha)
         self.assertTrue(m["available"])
-        self.assertEqual(m["memory"], "remember this")
-        self.assertIsNone(m["user"])
+        self.assertTrue(m["has_memory"])
+        self.assertFalse(m["has_user"])  # fixture has MEMORY.md, no USER.md
 
     def test_channels_split(self):
         c = channels.read(self.alpha)
@@ -138,9 +172,54 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(t["total_tokens"], 15)  # 10 + 5
         self.assertEqual(t["models"][0]["model"], "m1")
 
+    def test_soul_preview(self):
+        # soul reader runs on a profile root; beta has SOUL.md, alpha root does not
+        so = soul.read(os.path.join(self.alpha, "profiles", "beta"))
+        self.assertTrue(so["available"])
+        self.assertTrue(so["preview"]["text"].startswith("# Beta"))
+        self.assertFalse(so["preview"]["truncated"])  # short file
+        self.assertFalse(soul.read(self.alpha)["available"])  # no root SOUL.md
+
+    def test_memory_preview(self):
+        m = memory.read(self.alpha)
+        self.assertEqual(m["memory_preview"]["text"], "remember this")
+        self.assertFalse(m["memory_preview"]["truncated"])
+        self.assertIsNone(m["user_preview"])  # no USER.md
+
+    def test_sessions_state_db_windows_and_source(self):
+        now = int(time.time())
+        old = now - 40 * 86400  # outside 30d / 7d windows
+        d = tempfile.mkdtemp(prefix="admsys-sdb-")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        _state_db(os.path.join(d, "state.db"), [
+            ("cron",    now - 3600, 100, 50, 1.0),   # recent
+            ("Discord", now - 7200, 200, 100, 2.0),  # recent, mixed-case source
+            ("discord", old,       1000, 0, 5.0),    # old
+        ])
+        s = sessions.read(d)
+        self.assertTrue(s["available"])
+        self.assertEqual(s["total"], 3)
+        self.assertEqual(s["tokens_total"], 1450)             # 150+300+1000
+        self.assertEqual(s["tokens_30d"], 450)                # recent two only
+        self.assertEqual(s["tokens_7d"], 450)
+        self.assertAlmostEqual(s["cost_total"], 8.0)
+        self.assertAlmostEqual(s["cost_30d"], 3.0)
+        self.assertAlmostEqual(s["cost_7d"], 3.0)
+        self.assertEqual(s["by_source"], {"cron": 1, "discord": 2})  # lowercased
+
+    def test_profiles_session_count_from_state_db(self):
+        d = tempfile.mkdtemp(prefix="admsys-psdb-")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        _state_db(os.path.join(d, "state.db"), [
+            ("cron", 1, 1, 1, 0.0), ("discord", 2, 1, 1, 0.0),
+        ])
+        p = profiles.read(d)
+        main = next(pr for pr in p["profiles"] if pr["name"] == "main")
+        self.assertEqual(main["sessions"], 2)  # counted from state.db, not jsonl
+
     def test_all_readers_failsoft_on_empty(self):
         for r in (gateway, kanban, cron, sessions, profiles, skills,
-                  logs, memory, channels, tokens):
+                  logs, memory, soul, channels, tokens):
             out = r.read(self.empty)
             self.assertIn("available", out, r.__name__)
             # never raises, always returns a dict with an availability flag

@@ -88,6 +88,40 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"ERROR boom", body)
 
+    def test_file_config(self):
+        status, ct, body = self.get("/api/file?agent=alpha&profile=main&name=config")
+        self.assertEqual(status, 200)
+        self.assertIn("text/plain", ct)
+        self.assertIn(b"test-model", body)
+
+    def test_file_subprofile_config(self):
+        status, _, body = self.get("/api/file?agent=alpha&profile=beta&name=config")
+        self.assertEqual(status, 200)
+        self.assertIn(b"beta-model", body)
+
+    def test_file_profile_yaml(self):
+        status, _, body = self.get("/api/file?agent=alpha&profile=beta&name=profile")
+        self.assertEqual(status, 200)
+        self.assertIn(b"Beta sub-profile", body)
+
+    def test_file_soul(self):
+        status, _, body = self.get("/api/file?agent=alpha&profile=beta&name=soul")
+        self.assertEqual(status, 200)
+        self.assertIn(b"Beta persona soul", body)
+
+    def test_file_memory(self):
+        status, _, body = self.get("/api/file?agent=alpha&profile=main&name=memory")
+        self.assertEqual(status, 200)
+        self.assertIn(b"remember this", body)
+
+    def test_file_bad_name_blocked(self):
+        status, _, _ = self.get("/api/file?agent=alpha&profile=main&name=.env")
+        self.assertEqual(status, 404)
+
+    def test_file_bad_profile_blocked(self):
+        status, _, _ = self.get("/api/file?agent=alpha&profile=../../etc&name=config")
+        self.assertEqual(status, 404)
+
     def test_cron_run_valid(self):
         status, ct, body = self.get(
             "/api/cron-run?agent=alpha&profile=main&job=job1&file=2026-06-01_10-00-00.md")

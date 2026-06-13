@@ -1,29 +1,53 @@
-import { $, esc, UI, agents, badgeForState, isActive, relTime, tsShort, sortRows, arrow, errLine } from "./core.js";
+import { $, esc, UI, agents, badgeForState, isActive, relTime, tsShort, sortRows, arrow, errLine, fmtUsd } from "./core.js";
+import { agentCard } from "./render-overview.js";
 
 /* ---------- Agents (profiles) ---------- */
 export function renderAgents() {
   const list = agents();
   const head = (t, b) => `<div class="cards-head"><span class="ch-bar">▌</span><div class="ch-txt"><div class="ch-title">${t}</div><div class="ch-brief">${b}</div></div></div>`;
 
+  // top cards = full overview agent card + this tab's profiles table appended inside
   const profHtml = list.map(a => {
     const p = a.profiles || {};
     const rows = (p.profiles || []).map(pr =>
       `<tr><td class="mono">${esc(pr.name)}</td><td>${esc(pr.model || "—")}</td></tr>`
     ).join("");
-    return `<div class="panel">
-      <h3><span class="agentname">${esc(a.name)}</span></h3>
-      ${errLine(p)}
+    const profTable = `<div class="proflabel">profiles</div>${errLine(p)}
       <table><thead><tr><th>profile</th><th>model</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="2" class="empty">no profiles</td></tr>`}</tbody></table>
-    </div>`;
+      <tbody>${rows || `<tr><td colspan="2" class="empty">no profiles</td></tr>`}</tbody></table>`;
+    return agentCard(a, profTable);
   }).join("") || `<div class="empty">No agents.</div>`;
+
+  // SOULS — main agent SOUL.md preview (main profile only)
+  const soulHtml = list.map(a => {
+    const so = a.soul || {};
+    const badge = `<span class="pill mono profile-tag">main</span>`;
+    if (so.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> ${badge}</h3><div class="empty">no soul</div></div>`;
+    const a_ = encodeURIComponent(a.name);
+    const pv = so.preview || {};
+    const body = pv.text
+      ? `<pre class="mempre">${esc(pv.text)}${pv.truncated ? "\n…" : ""}</pre>`
+      : `<div class="empty">no preview</div>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> ${badge}</h3>
+      <div class="loglinks"><a href="/api/file?agent=${a_}&profile=main&name=soul" target="_blank" rel="noopener">SOUL.md ↗</a></div>
+      ${body}</div>`;
+  }).join("");
 
   const memHtml = list.map(a => {
     const m = a.memory || {};
-    if (m.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><div class="empty">no memory</div></div>`;
-    const mem = m.memory ? `<details class="skills" open><summary>MEMORY.md</summary><pre class="memtext">${esc(m.memory)}</pre></details>` : "";
-    const usr = m.user ? `<details class="skills"><summary>USER.md</summary><pre class="memtext">${esc(m.user)}</pre></details>` : "";
-    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3>${mem}${usr || (mem ? "" : `<div class="empty">—</div>`)}</div>`;
+    if (m.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3><div class="empty">no memory</div></div>`;
+    const a_ = encodeURIComponent(a.name);
+    const links = [];
+    if (m.has_memory) links.push(`<a href="/api/file?agent=${a_}&profile=main&name=memory" target="_blank" rel="noopener">MEMORY.md ↗</a>`);
+    if (m.has_user) links.push(`<a href="/api/file?agent=${a_}&profile=main&name=user" target="_blank" rel="noopener">USER.md ↗</a>`);
+    const previews = [];
+    [["MEMORY.md", m.memory_preview], ["USER.md", m.user_preview]].forEach(([label, pv]) => {
+      if (!pv || !pv.text) return;
+      previews.push(`<div class="proflabel">${label}</div><pre class="mempre">${esc(pv.text)}${pv.truncated ? "\n…" : ""}</pre>`);
+    });
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3>
+      <div class="loglinks">${links.join(" · ") || `<span class="empty">—</span>`}</div>
+      ${previews.join("") || `<div class="empty">no preview</div>`}</div>`;
   }).join("");
 
   const skHtml = list.map(a => {
@@ -31,8 +55,72 @@ export function renderAgents() {
     const rows = used.map(s =>
       `<tr><td>${esc(s.name)}</td><td class="mono">${s.count}</td><td class="ts">${esc(tsShort(s.last_used))}</td></tr>`
     ).join("") || `<tr><td colspan="3" class="empty">no usage</td></tr>`;
-    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3>
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3>
       <table><thead><tr><th>skill</th><th>uses</th><th>last used</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join("");
+
+  // CHANNELS — per-agent platform bindings (channels / dms / threads)
+  const chHtml = list.map(a => {
+    const c = a.channels || {};
+    if (c.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3><div class="empty">no channels</div></div>`;
+    // threads carry no parent id — infer the channel from "… / #<name> / …" in
+    // the thread's name. word-boundary guard so #insights ≠ #insights-ideas.
+    const rxEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const threadsFor = name => {
+      if (!name) return 0;
+      const re = new RegExp("#" + rxEsc(name) + "(?![\\w-])", "i");
+      return (c.threads || []).filter(tn => re.test(String(tn))).length;
+    };
+    const row = (kind, x, thr) => `<tr>
+      <td class="mono">${kind}</td>
+      <td class="mono">${esc(x.platform || "—")}</td>
+      <td>${esc(x.name || x.id || "—")}</td>
+      <td class="mono">${esc(x.guild || "—")}</td>
+      <td class="mono">${thr}</td></tr>`;
+    const rows = [
+      ...(c.channels || []).map(x => row("channel", x, threadsFor(x.name))),
+      ...(c.dms || []).map(x => row("dm", x, "—")),
+    ].join("") || `<tr><td colspan="5" class="empty">no channels</td></tr>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span>
+        <span class="pill mono">${(c.channels || []).length} ch</span>
+        <span class="pill mono">${(c.dms || []).length} dm</span>
+        <span class="pill mono">${c.thread_count || 0} thr</span></h3>
+      <table><thead><tr><th>type</th><th>platform</th><th>name</th><th>guild</th><th>threads</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }).join("");
+
+  // TOKENS — main-profile usage: all-time total, 30d, 7d (from state.db sessions)
+  const tokHtml = list.map(a => {
+    const s = a.sessions || {};
+    const n = v => (v || 0).toLocaleString();
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3>
+      <table><thead><tr><th>period</th><th>tokens</th><th>cost</th></tr></thead><tbody>
+        <tr><td>total</td><td class="mono">${n(s.tokens_total)}</td><td class="mono">${esc(fmtUsd(s.cost_total))}</td></tr>
+        <tr><td>30d</td><td class="mono">${n(s.tokens_30d)}</td><td class="mono">${esc(fmtUsd(s.cost_30d))}</td></tr>
+        <tr><td>7d</td><td class="mono">${n(s.tokens_7d)}</td><td class="mono">${esc(fmtUsd(s.cost_7d))}</td></tr>
+      </tbody></table></div>`;
+  }).join("");
+
+  // RECENT — last 5 task runs + last 5 sessions + log issue counts, per agent
+  const recHtml = list.map(a => {
+    const k = a.kanban || {}, s = a.sessions || {}, lg = a.logs || {};
+    const taskRows = (k.runs || []).slice(0, 5).map(r =>
+      `<tr><td class="mono">${esc((r.task_id || "").slice(0, 8))}</td>
+        <td><span class="pill ${badgeForState(r.status)}">${esc(r.status || "?")}</span></td>
+        <td class="ts">${esc(tsShort(r.started_at))}</td></tr>`
+    ).join("") || `<tr><td colspan="3" class="empty">no task runs</td></tr>`;
+    const sessRows = (s.recent || []).slice(0, 5).map(r =>
+      `<tr><td class="mono">${esc((r.id || "").slice(0, 8))}</td>
+        <td class="ts">${esc(tsShort(r.started_at))}</td>
+        <td class="mono">${r.messages == null ? "—" : esc(r.messages)}</td></tr>`
+    ).join("") || `<tr><td colspan="3" class="empty">no sessions</td></tr>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span>
+        <span class="pill b-bad bad">${lg.errors || 0} err</span>
+        <span class="pill b-warn warn">${lg.warnings || 0} warn</span></h3>
+      <div class="proflabel">recent task runs</div>
+      <table><thead><tr><th>task</th><th>status</th><th>started</th></tr></thead><tbody>${taskRows}</tbody></table>
+      <div class="proflabel">recent sessions</div>
+      <table><thead><tr><th>session</th><th>started</th><th>msgs</th></tr></thead><tbody>${sessRows}</tbody></table></div>`;
   }).join("");
 
   $("tab-agents").innerHTML = `
@@ -40,31 +128,54 @@ export function renderAgents() {
     <div class="midline"></div>
     ${head("SKILLS USAGE", "active skills · uses per skill")}<div class="grid">${skHtml}</div>
     <div class="midline"></div>
-    ${head("MEMORY", "MEMORY.md · USER.md")}<div class="grid">${memHtml}</div>`;
+    ${head("TOKENS", "main profile · total · 30d · 7d")}<div class="grid">${tokHtml}</div>
+    <div class="midline"></div>
+    ${head("SOULS", "SOUL.md persona · main profile")}<div class="grid">${soulHtml}</div>
+    <div class="midline"></div>
+    ${head("MEMORY", "MEMORY.md · USER.md preview")}<div class="grid">${memHtml}</div>
+    <div class="midline"></div>
+    ${head("CHANNELS", "platform bindings · channels · dms · threads")}<div class="grid">${chHtml}</div>
+    <div class="midline"></div>
+    ${head("RECENT", "last 5 task runs · last 5 sessions · log issues")}<div class="grid">${recHtml}</div>`;
 }
 
-/* ---------- Profiles (per-profile detail) ---------- */
+/* ---------- Profiles (per agent → per profile: desc, skills, channels) ---------- */
 export function renderProfiles() {
   const list = agents();
   const html = list.map(a => {
     const p = a.profiles || {};
     if (p.available === false) {
-      return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3>${errLine(p)}<div class="empty">no profiles</div></div>`;
+      return `<div class="panel" style="grid-column:1/-1"><h3><span class="agentname">${esc(a.name)}</span></h3>${errLine(p)}<div class="empty">no profiles</div></div>`;
     }
     const profs = p.profiles || [];
     const blocks = profs.map(pr => {
       const ch = pr.channels || {};
-      const chList = (ch.channels || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
-      const dmList = (ch.dms || []).map(x => `<div class="dname">${esc(x.name || x.id)}</div>`).join("") || `<div class="muted">—</div>`;
+      const sk = pr.skills || {};
+      const names = arr => arr.map(x => `<span class="dchip">${esc(x.name || x.id)}</span>`).join(" ") || `<span class="muted">—</span>`;
+      const cats = (sk.categories || []).map(c => `<span class="pill mono">${esc(c.name)} ${c.count}</span>`).join(" ");
+      const skBlock = sk.count
+        ? `<details class="skills"><summary>${sk.count} skills · ${(sk.categories || []).length} categories</summary><div class="cats">${cats}</div></details>`
+        : `<span class="muted">no skills</span>`;
       return `<div class="profblock">
-        <div class="profhdr"><span class="mono pname">${esc(pr.name)}</span><span class="pill mono">${esc(pr.model || "—")}</span></div>
-        <table class="discord-tbl"><thead><tr><th>channels</th><th>dms</th><th>threads</th></tr></thead>
-        <tbody><tr><td>${chList}</td><td>${dmList}</td><td class="mono">${ch.threads || 0}</td></tr></tbody></table>
+        <div class="profhdr">
+          <span class="pname">${esc(pr.name)}</span>
+          <span class="pill ${badgeForState(pr.state)}">${esc(pr.state || "—")}</span>
+          <span class="pill modelpill mono">${esc(pr.model || "no model")}</span>
+        </div>
+        ${pr.description ? `<div class="profdesc">${esc(pr.description)}</div>` : `<div class="profdesc muted">no description</div>`}
+        <div class="loglinks">
+          ${pr.has_profile ? `<a href="/api/file?agent=${encodeURIComponent(a.name)}&profile=${encodeURIComponent(pr.name)}&name=profile" target="_blank" rel="noopener">profile.yaml ↗</a> · ` : ""}
+          <a href="/api/file?agent=${encodeURIComponent(a.name)}&profile=${encodeURIComponent(pr.name)}&name=config" target="_blank" rel="noopener">config.yaml ↗</a>
+          ${pr.has_soul ? `· <a href="/api/file?agent=${encodeURIComponent(a.name)}&profile=${encodeURIComponent(pr.name)}&name=soul" target="_blank" rel="noopener">SOUL.md ↗</a>` : ""}
+        </div>
+        <div class="proflabel">skills</div>${skBlock}
+        <table class="discord-tbl"><thead><tr><th>channels (${(ch.channels || []).length})</th><th>dms (${(ch.dms || []).length})</th><th>threads</th></tr></thead>
+        <tbody><tr><td>${names(ch.channels || [])}</td><td>${names(ch.dms || [])}</td><td class="mono">${ch.threads || 0}</td></tr></tbody></table>
       </div>`;
     }).join("") || `<div class="empty">no profiles</div>`;
-    return `<div class="panel">
+    return `<div class="panel" style="grid-column:1/-1">
       <h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono">${profs.length} profiles</span></h3>
-      ${errLine(p)}${blocks}</div>`;
+      ${errLine(p)}<div class="profgrid">${blocks}</div></div>`;
   }).join("") || `<div class="empty">No agents.</div>`;
   $("tab-profiles").innerHTML = `<div class="grid">${html}</div>`;
 }

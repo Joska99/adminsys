@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs
 
 from readers import (
     discovery, gateway, kanban, cron, sessions, profiles, skills,
-    logs, memory, channels, tokens,
+    logs, memory, soul, channels, tokens,
 )
 
 DATA_ROOT = os.environ.get("DATA_ROOT", "/data")
@@ -60,6 +60,7 @@ def build_snapshot():
             "skills": _safe(skills, path),
             "logs": _safe(logs, path),
             "memory": _safe(memory, path),
+            "soul": _safe(soul, path),
             "channels": _safe(channels, path),
             "tokens": _safe(tokens, path),
         })
@@ -153,6 +154,39 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_file(path, "text/markdown; charset=utf-8")
 
+    # whitelisted profile files: name -> (relative path, content type)
+    PROFILE_FILES = {
+        "config": ("config.yaml", "text/plain; charset=utf-8"),
+        "profile": ("profile.yaml", "text/plain; charset=utf-8"),
+        "soul": ("SOUL.md", "text/markdown; charset=utf-8"),
+        "memory": (os.path.join("memories", "MEMORY.md"), "text/markdown; charset=utf-8"),
+        "user": (os.path.join("memories", "USER.md"), "text/markdown; charset=utf-8"),
+    }
+
+    def _serve_file(self, query):
+        q = parse_qs(query)
+        agent = (q.get("agent") or [""])[0]
+        profile = (q.get("profile") or ["main"])[0]
+        name = (q.get("name") or [""])[0]
+        agents = dict(discovery.list_agents(DATA_ROOT))
+        if agent not in agents or name not in self.PROFILE_FILES:
+            self.send_error(404, "Not found")
+            return
+        base = agents[agent]
+        if profile == "main":
+            pass
+        elif re.match(r"^[A-Za-z0-9._-]+$", profile):
+            base = os.path.join(base, "profiles", profile)
+        else:
+            self.send_error(404, "Not found")
+            return
+        rel, ctype = self.PROFILE_FILES[name]
+        path = os.path.join(base, rel)
+        if not os.path.isfile(path):
+            self.send_error(404, "Not found")
+            return
+        self._send_file(path, ctype)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         route = parsed.path
@@ -168,6 +202,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_log(parsed.query)
         elif route == "/api/cron-run":
             self._serve_cron_run(parsed.query)
+        elif route == "/api/file":
+            self._serve_file(parsed.query)
         elif route in STATIC_FILES:
             self._send_file(os.path.join(WEB, route.lstrip("/")), STATIC_FILES[route])
         elif route.startswith("/js/") and re.match(r"^[A-Za-z0-9_-]+\.js$", route[4:]):

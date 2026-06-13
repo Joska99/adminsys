@@ -7,7 +7,7 @@
     --safety:#FF3E00;
     --gold:#FF3E00; --gold-2:#FF3E00; --gold-dim:rgba(255,62,0,0.12);
     --green:#1FA84E; --teal:#0E8FA8; --red:#E2231A;
-    --yellow:#C77B00; --pink:#C42A86;
+    --yellow:#C77B00; --pink:#C42A86; --indigo:#0BA6DF; --amber:#EAB308; --goldyel:#D4AF37; --slate:#64748B;
     --txt:#000000; --muted:#666666;
     --panel:#FFFFFF; --panel-2:#FFFFFF;
     --line:#000000; --line-gold:#000000;
@@ -18,6 +18,24 @@
     --radius:0;
     --header-h:4rem;
   }
+  /* dark theme — flips the core palette; --ink goes light so the hard
+     neo-brutalist borders + shadows stay visible on a dark ground. */
+  :root.dark {
+    --bg:#15140F;
+    --base:#1C1A14;
+    --ink:#F2F0EF;
+    --txt:#F2F0EF; --muted:#9C968C;
+    --panel:#1C1A14; --panel-2:#1C1A14;
+    --line:#F2F0EF; --line-gold:#F2F0EF;
+    --chip-bg:#1C1A14; --hover-bg:rgba(255,255,255,0.08);
+    --header-bg:#1C1A14;
+  }
+  /* hairlines hardcoded as rgba(0,0,0,*) need a light counterpart in dark */
+  :root.dark th, :root.dark td { border-bottom-color:rgba(255,255,255,0.14); }
+  :root.dark .pill { border-color:rgba(255,255,255,0.22); }
+  :root.dark .logbox, :root.dark .mempre { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.16); }
+  :root.dark .profblock { border-top-color:rgba(255,255,255,0.16); }
+  :root.dark .card-foot .cardmeta { border-top-color:rgba(255,255,255,0.2); }
   * { box-sizing:border-box; }
   html,body { height:100%; }
   body {
@@ -35,6 +53,8 @@
     display:flex; flex-direction:column;
     background:var(--base);
     border-right:3px solid var(--ink);
+    position:sticky; top:0; align-self:flex-start;
+    height:100vh; overflow-y:auto;
   }
   .logo { height:var(--header-h); flex:none; display:flex; align-items:center; gap:0.6rem; padding:0 1rem; }
   .logo-txt { font-family:"VT323",monospace; font-size:1.7rem; color:var(--ink);
@@ -63,7 +83,20 @@
     display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
     min-height:var(--header-h); padding:0 1.6rem; background:var(--header-bg);
     border-bottom:4px solid var(--ink);
+    position:sticky; top:0; z-index:40;
   }
+  /* jump-to-top — fixed, hidden until scrolled down */
+  .to-top {
+    position:fixed; right:1.3rem; bottom:1.3rem; z-index:60;
+    background:var(--base); color:var(--ink); border:2px solid var(--ink);
+    box-shadow:4px 4px 0 var(--ink); padding:0.5rem 0.8rem; cursor:pointer;
+    font-family:inherit; text-transform:uppercase; letter-spacing:0.06em; font-size:0.72rem;
+    opacity:0; pointer-events:none; transform:translateY(6px);
+    transition:opacity .15s, transform .15s, box-shadow .12s;
+  }
+  .to-top.show { opacity:1; pointer-events:auto; transform:none; }
+  .to-top:hover { box-shadow:6px 6px 0 var(--safety); }
+  .to-top:active { box-shadow:none; transform:translate(2px,2px); }
   header .hello { font-family:"VT323",monospace; font-size:1.7rem; font-weight:400; letter-spacing:0.06em;
     color:var(--ink); }
   header .hello span { color:var(--safety); }
@@ -129,8 +162,17 @@
   .dname:hover { background:var(--hover-bg); }
   .profblock { margin-top:0.7rem; padding-top:0.6rem; border-top:1px solid rgba(0,0,0,0.14); }
   .profblock:first-of-type { border-top:none; }
-  .profhdr { display:flex; gap:0.6rem; align-items:center; justify-content:space-between; margin-bottom:0.35rem; }
-  .pname { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink); }
+  .profhdr { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.35rem; }
+  .pname { font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink); margin-right:auto; }
+  /* redesigned Profiles tab: per-agent panel holds a grid of profile cards */
+  .profgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:0.8rem; margin-top:0.6rem; }
+  .profgrid .profblock { margin:0; padding:0.75rem; border:2px solid var(--ink); box-shadow:4px 4px 0 var(--ink); background:var(--base); }
+  .profgrid .profblock:first-of-type { border-top:2px solid var(--ink); }
+  .profdesc { font-size:0.78rem; color:var(--txt); margin:0.2rem 0 0.5rem; line-height:1.45; }
+  .profdesc.muted { font-style:italic; }
+  .proflabel { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin:0.55rem 0 0.2rem; }
+  .dchip { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:0.7rem;
+    border:1px solid rgba(0,0,0,0.25); padding:0.06rem 0.32rem; margin:0.1rem 0.1rem 0 0; }
   .disc-row { display:flex; gap:0.7rem; margin:0.5rem 0; align-items:baseline; }
   .disc-lbl { flex:none; min-width:4.5rem; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); }
   .memtext { white-space:pre-wrap; font-family:"JetBrains Mono",monospace; font-size:0.72rem;
@@ -139,6 +181,9 @@
     max-height:26rem; overflow:auto; background:rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.14); padding:0.5rem 0.7rem; }
   .logline { white-space:pre-wrap; word-break:break-all; color:var(--muted); }
   .logline.bad { color:var(--red); } .logline.warn { color:var(--yellow); }
+  .mempre { font-family:"JetBrains Mono",monospace; font-size:0.66rem; line-height:1.5;
+    white-space:pre-wrap; word-break:break-word; max-height:14rem; overflow:auto;
+    background:rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.14); padding:0.45rem 0.6rem; margin:0; color:var(--muted); }
   .loglinks { font-size:0.66rem; color:var(--muted); margin:0 0 0.5rem; }
   .loglinks a { color:var(--safety); margin:0 0.4rem; text-decoration:underline; }
   .loglinks a:hover { color:var(--ink); }
@@ -176,10 +221,15 @@
   .kpi-sep { width:1px; align-self:stretch; background:var(--ink); margin:0 0.2rem; }
   .kpi-grn .kpi-num, .kpi-grn .kpi-icon { color:var(--green); }
   .kpi-yel .kpi-num, .kpi-yel .kpi-icon { color:var(--yellow); }
-  .kpi-pnk .kpi-num, .kpi-pnk .kpi-icon { color:var(--pink); }
+  .kpi-pnk .kpi-num, .kpi-pnk .kpi-icon { color:#F7A5A5; }
   .kpi-cyn .kpi-num, .kpi-cyn .kpi-icon { color:var(--teal); }
   .kpi-org .kpi-num, .kpi-org .kpi-icon { color:var(--safety); }
   .kpi-red .kpi-num, .kpi-red .kpi-icon { color:var(--red); }
+  .kpi-ind .kpi-num, .kpi-ind .kpi-icon { color:var(--indigo); }
+  .kpi-amber .kpi-num, .kpi-amber .kpi-icon { color:var(--amber); }
+  .kpi-gold .kpi-num, .kpi-gold .kpi-icon { color:var(--goldyel); }
+  .kpi-slate .kpi-num, .kpi-slate .kpi-icon { color:#995F2F; }
+  .kpi-mut .kpi-num, .kpi-mut .kpi-icon { color:var(--muted); }
   .pill { font-size:0.7rem; padding:0.16rem 0.55rem; border-radius:0;
     border:1px solid var(--ink); background:var(--base); }
   .ok{color:var(--green);} .warn{color:var(--yellow);} .bad{color:var(--red);} .muted{color:var(--muted);}
@@ -269,3 +319,36 @@
     nav#tabs { flex-direction:row; flex-wrap:wrap; }
     .topgrid { grid-template-columns:1fr; }
   }
+
+  /* overview: live indicator + session freshness (added) */
+  .ov-head { position:relative; text-align:center; }
+  .ov-live { position:absolute; right:0; top:0; display:flex; align-items:center; gap:1rem; }
+  .ov-live .spark-wrap { margin:0; width:150px; }
+  .livebox { font-size:0.62rem; color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.06em; white-space:nowrap; display:flex; align-items:center; gap:0.4rem; }
+  .livedot { width:8px; height:8px; border-radius:50%; background:var(--green);
+    display:inline-block; animation:livepulse 2s ease-in-out infinite; }
+  @keyframes livepulse { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+  #live-ago.stale { color:var(--red); font-weight:700; }
+  .livebox:has(#live-ago.stale) .livedot { background:var(--red); animation:none; }
+  .lastact { font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em;
+    margin:0.1rem 0 0.5rem; color:var(--muted); }
+
+  /* overview: system-health banner (added) */
+  .health { text-align:center; font-family:"JetBrains Mono",monospace; font-size:0.78rem;
+    text-transform:uppercase; letter-spacing:0.08em; padding:0.55rem 0.8rem;
+    margin-bottom:0.9rem; border:2px solid; font-weight:700; }
+  .health.ok   { color:var(--green);  border-color:var(--green);  background:rgba(31,168,78,0.06); }
+  .health.warn { color:var(--yellow); border-color:var(--yellow); background:rgba(199,123,0,0.06); }
+  .health.bad  { color:var(--red);    border-color:var(--red);    background:rgba(226,35,26,0.06); }
+  .health.clickable { cursor:pointer; }
+  .health.clickable:hover { filter:brightness(1.1); }
+
+  /* agent card 7d cost/tokens meta line (added) */
+  .cardmeta { font-size:0.66rem; color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.05em; margin:0 0 0.6rem; }
+
+  /* agent card footer — last session + 7d meta, set off by accent lines (added) */
+  .card-foot { margin-top:0.9rem; padding-top:0.6rem; border-top:2px solid var(--ink); }
+  .card-foot .lastact { margin:0 0 0.3rem; }
+  .card-foot .cardmeta { margin:0; padding-top:0.3rem; border-top:1px dashed rgba(0,0,0,0.2); }
