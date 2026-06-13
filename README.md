@@ -42,15 +42,16 @@ Python backend lives at the root; everything served to the browser lives under `
 │   ├── __init__.py
 │   ├── discovery.py     # list /data subfolders -> agents
 │   ├── gateway.py       # gateway_state.json -> status dict
-│   ├── kanban.py        # kanban.db -> task runs / events (ro sqlite)
+│   ├── kanban.py        # kanban.db -> task runs/events + tasks_total/runs_total (ro sqlite)
 │   ├── cron.py          # cron/jobs.json (main + sub-profiles) + run history
-│   ├── sessions.py      # sessions/*.jsonl -> recent list + total count
-│   ├── profiles.py      # profiles/* + config.yaml + per-profile state/sessions
+│   ├── sessions.py      # state.db (fallback sessions/*.jsonl) -> recent, total, daily7, by_source, cost/token windows (7d/30d/total)
+│   ├── profiles.py      # profiles/* + config.yaml + per-profile state/sessions (state.db count)
 │   ├── skills.py        # skills/.usage.json -> used + top-10 by use_count
 │   ├── logs.py          # logs/*.log -> error/warn issues + counts
-│   ├── memory.py        # memories/MEMORY.md + USER.md
+│   ├── memory.py        # memories/MEMORY.md + USER.md (+ short previews)
+│   ├── soul.py          # SOUL.md persona (+ short preview), main profile
 │   ├── channels.py      # channel_directory.json -> channels / dms / threads
-│   └── tokens.py        # response_store.db -> token usage
+│   └── tokens.py        # response_store.db -> token usage (per-model, overview only)
 ├── web/                 # everything the browser loads (served by server.py)
 │   ├── index.html       # single page, loads js/main.js as <script type="module">
 │   ├── styles.css       # AXIS light neo-brutalist theme
@@ -89,11 +90,12 @@ Python backend lives at the root; everything served to the browser lives under `
       "gateway":  { ... },
       "kanban":   { ... },
       "cron":     { ... },            // jobs + failed count + per-job run history
-      "sessions": { ... },            // recent + total
+      "sessions": { ... },            // recent + total + by_source + cost/token windows
       "profiles": { ... },
       "skills":   { ... },            // used + top_used (10)
       "logs":     { ... },            // issues (err/warn) + counts
-      "memory":   { ... },
+      "memory":   { ... },            // existence + previews
+      "soul":     { ... },            // SOUL.md preview (main)
       "channels": { ... },            // channels / dms / threads
       "tokens":   { ... }
     }
@@ -105,15 +107,16 @@ Python backend lives at the root; everything served to the browser lives under `
 | Reader | Source in agent folder | Shows | Scope |
 | --- | --- | --- | --- |
 | `gateway` | `gateway_state.json` | gateway running/stopped, platform connection state, active agents | main |
-| `kanban` | `kanban.db` (ro sqlite) | task runs: status, outcome, summary, timing, error | main |
+| `kanban` | `kanban.db` (ro sqlite) | task runs: status, outcome, summary, timing, error; `tasks_total`/`runs_total` (true `COUNT(*)`) | main |
 | `cron` | `cron/jobs.json` (main + `profiles/*/cron`), `cron/output/<job>/*.md` | scheduled jobs, schedule→plain English, failed count, run history per job | **main + sub-profiles** |
-| `sessions` | `sessions/*.jsonl` | recent sessions + total count | main |
-| `profiles` | `profiles/*` + each profile's `config.yaml`, `gateway_state.json`, `channel_directory.json`, `sessions/` | per profile: model, **state (running/stopped)**, **session count**, channel/dm/thread bindings | main + sub-profiles |
+| `sessions` | `state.db` (ro sqlite; fallback `sessions/*.jsonl`) | recent + total, `daily7`, `by_source` (cron/discord…), cost + token windows (7d/30d/total) | main |
+| `profiles` | `profiles/*` + each profile's `config.yaml`, `gateway_state.json`, `channel_directory.json`, `state.db`/`sessions/` | per profile: model, **state (running/stopped)**, **session count (state.db)**, channel/dm/thread bindings | main + sub-profiles |
 | `skills` | `skills/.usage.json`, `.skills_prompt_snapshot.json` | skills with `use_count > 0`, top 10 used, category counts | main |
 | `logs` | `logs/errors.log`, `agent.log`, `gateway.log` | error/warn issues, tagged + counted | main |
-| `memory` | `memories/MEMORY.md`, `USER.md` | memory snapshot | main |
-| `channels` | `channel_directory.json` | channels / dms / threads by type | main |
-| `tokens` | `response_store.db` (ro sqlite) | token usage (total + per-model) | main |
+| `memory` | `memories/MEMORY.md`, `USER.md` | existence + short inline preview of each | main |
+| `soul` | `SOUL.md` | persona file existence + short inline preview | main |
+| `channels` | `channel_directory.json` | channels / dms / threads by type (+ per-channel thread count inferred from thread names) | main |
+| `tokens` | `response_store.db` (ro sqlite) | token usage (total + per-model) — Overview only | main |
 
 **Profiles are independent agent instances.** Root = the `main` profile; each `profiles/<name>/` is a full Hermes home with its own gateway/cron/sessions. Only `cron` aggregates across all profiles; the other readers reflect `main`. Per-profile detail (state, model, bindings, sessions) lives in the **Profiles** tab + the overview PROFILES section.
 
@@ -129,6 +132,7 @@ Python backend lives at the root; everything served to the browser lives under `
 | `/healthz` | liveness `{"ok": true}` |
 | `/api/log?agent=&file=` | raw log tail; `file` whitelisted to `errors.log`/`agent.log`/`gateway.log` |
 | `/api/cron-run?agent=&profile=&job=&file=` | one cron run report (`cron/output/<job>/<ts>.md`) |
+| `/api/file?agent=&profile=&name=` | a whitelisted per-profile file: `name` ∈ `config`/`profile`/`soul`/`memory`/`user` |
 | `/styles.css` | stylesheet (whitelisted) |
 | `/js/<name>.js` | ES modules (regex-validated name, no path traversal) |
 
@@ -140,18 +144,20 @@ No POST / PUT / DELETE. All agent/job/file params regex-validated against the di
 
 Single page, vanilla JS split into native ES modules (no bundler — server sets `text/javascript` and the browser resolves `import`). State (`SNAP`/`SELECTED`/`UI` in `core.js`) survives re-renders; the SSE client diffs the snapshot and skips render when unchanged.
 
-**Header:** `#_ADMIN.SYS` brand · `|` · live-feed dot + `N agents` / `N profiles` badges · **filters** (`running` / `stopped` / `clear`) · **agents** multi-select dropdown (default `all`).
+**Header:** `#_ADMIN.SYS` brand · `|` · live-feed dot + `N agents` / `N profiles` badges · **filters** (`running` / `stopped` / `clear`) · **agents** multi-select dropdown (default `all`) · **theme toggle** (light / dark).
 
 - **Filters & dropdown are global** — applied by `agents()` in `core.js`, so they affect **every tab**, not just Overview. `clear` resets running/stopped (leaves the dropdown selection).
 - **Live-feed dot** pulses green; turns **red** on SSE disconnect (fill + pulse share one `--dot-c` var).
+- **Sticky chrome** — header + sidebar stay pinned while the page scrolls; a **jump-to-top** button appears once scrolled down (≤760px the sidebar collapses to a static top row).
+- **Dark theme** — toggle flips a `dark` class on `<html>` (persisted in `localStorage`, applied inline in `<head>` to avoid flash); palette driven entirely by CSS vars under `:root.dark`. Accent + KPI colors unchanged.
 
 **Tabs (sidebar):** Overview · Agents · **Profiles** · Cron · Tasks · Sessions · Logs.
 
 - **Overview**
-  - **KPI boxes** (7): agents, profiles, active agents, running tasks, total sessions, total crons, failed crons. The four that are **buttons** (agents, profiles, total sessions, total crons) carry a corner **link badge** and jump to their tab; the rest are plain.
-  - **Agent cards** — per agent (main profile): gateway state + `main` badge + model, platform pills, session/active/cron/skill/profile stats, 7-day session sparkline, skill categories. Card shadow is colored by health (green = running, red = stopped/failed, yellow = unknown). Cards do **not** jump.
-  - **Sections** (non-clickable): **PROFILES** (per-profile table: agent · profile · model · state · cron · channels · sessions), **CRON** (next 5 jobs), **TOP SKILLS** (top-10 by use per agent), **TOKENS**, **INCIDENTS (LOGS)** (errors · cron failures · exits).
-- **Agents** — per agent: profiles table (name/model), skills-usage table, MEMORY (MEMORY.md / USER.md).
+  - **KPI boxes** (9): agents, profiles, total crons, total sessions, spend 7d, tokens 7d, active agents, running tasks, failed crons. The four that are **buttons** (agents → Agents, profiles → Profiles, total sessions → Sessions, total crons → Cron) carry a corner **link badge** and jump to their tab; the rest are plain. Per-box accent colors live on the `.kpi-*` rules in `styles.css`.
+  - **Agent cards** — per agent (main profile): gateway state + `main` badge + model, **discord/api-ordered** platform pills, session/active/cron/skill/profile stats. Card foot: last session · `N kanban tasks` · cron/discord session split · 7d spend + tokens. Card shadow is colored by health (green = running, red = stopped/failed, yellow = unknown). Cards do **not** jump. (Shared `agentCard()` — also drives the Agents-tab top cards.)
+  - **Sections** (non-clickable): **PROFILES** (top 5 profiles by sessions: agent · profile · model · state · cron · channels · sessions), **CRON** (next 5 jobs), **TOP SKILLS** (top-10 by use per agent), **TOKENS**, **INCIDENTS (LOGS)** (errors · cron failures · exits).
+- **Agents** — top cards (full `agentCard` + profiles table), then per-agent sections, each `main`-badged: **SKILLS USAGE**, **TOKENS** (total/30d/7d tokens + cost), **SOULS** (SOUL.md preview), **MEMORY** (MEMORY.md/USER.md preview), **CHANNELS** (table: type · platform · name · guild · threads), **RECENT** (last 5 task runs + 5 sessions + log issue counts).
 - **Profiles** — per agent, one block per profile: name + model + its channel/dm/thread bindings.
 - **Cron** — scheduled jobs (sortable), plain-English schedule, run-history `<details>` → open a past run report (`/api/cron-run`).
 - **Tasks** — kanban task runs, status filter chips, sortable columns.

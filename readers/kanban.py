@@ -38,15 +38,20 @@ def read(agent_path):
     conn = None
     try:
         conn = _connect_ro(path)
-        out = {"available": True, "tasks": [], "runs": []}
+        out = {"available": True, "tasks": [], "runs": [],
+               "tasks_total": 0, "runs_total": 0}
 
         if _table_exists(conn, "tasks"):
+            out["tasks_total"] = conn.execute(
+                "SELECT COUNT(*) FROM tasks").fetchone()[0]
             out["tasks"] = _rows(
                 conn,
                 "SELECT * FROM tasks ORDER BY rowid DESC LIMIT ?",
                 (RECENT_TASKS,),
             )
         if _table_exists(conn, "task_runs"):
+            out["runs_total"] = conn.execute(
+                "SELECT COUNT(*) FROM task_runs").fetchone()[0]
             out["runs"] = _rows(
                 conn,
                 "SELECT id, task_id, profile, status, outcome, summary, "
