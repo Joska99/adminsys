@@ -1,12 +1,12 @@
 # ADMIN.SYS — make spins up containers only. Tests run via tests/run.sh
 # (no make inside docker). Run tests directly: bash tests/run.sh [py|render|e2e|all]
 
-.PHONY: docker-test run run-bg stop help
+.PHONY: test run run-bg stop help
 
-.DEFAULT_GOAL := docker-test
+.DEFAULT_GOAL := test
 
 help:
-	@echo "make docker-test  - build the test image and run the whole suite in a container"
+	@echo "make test         - build the test image and run the whole suite in a container"
 	@echo "make run          - rebuild the app container and run it (compose, :1999)"
 	@echo "make run-bg       - same, detached (background)"
 	@echo "make stop         - stop the app container"

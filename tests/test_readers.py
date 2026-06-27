@@ -18,8 +18,20 @@ sys.path.insert(0, ROOT)
 import _fixture  # noqa: E402  (tests dir on path via discover)
 from readers import (  # noqa: E402
     discovery, gateway, kanban, cron, sessions, profiles, skills,
-    logs, memory, soul, channels, tokens,
+    logs, memory, soul, channels, tokens, tools, disk, vault,
 )
+
+
+def _messages_db(path, tool_rows):
+    """state.db with a minimal `messages` table. tool_rows: list of tool_name
+    (use '' / None for non-tool messages)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE messages (id INTEGER, role TEXT, tool_name TEXT)")
+    conn.executemany("INSERT INTO messages VALUES (?,?,?)",
+                     [(i, "tool" if t else "assistant", t) for i, t in enumerate(tool_rows)])
+    conn.commit()
+    conn.close()
 
 
 def _state_db(path, rows):
@@ -173,12 +185,16 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(t["models"][0]["model"], "m1")
 
     def test_soul_preview(self):
-        # soul reader runs on a profile root; beta has SOUL.md, alpha root does not
+        # soul reader runs on a profile root; beta has SOUL.md + AGENTS.md,
+        # alpha root has neither
         so = soul.read(os.path.join(self.alpha, "profiles", "beta"))
         self.assertTrue(so["available"])
+        self.assertTrue(so["has_soul"])
         self.assertTrue(so["preview"]["text"].startswith("# Beta"))
         self.assertFalse(so["preview"]["truncated"])  # short file
-        self.assertFalse(soul.read(self.alpha)["available"])  # no root SOUL.md
+        self.assertTrue(so["has_agents"])
+        self.assertTrue(so["agents_preview"]["text"].startswith("# Beta agents"))
+        self.assertFalse(soul.read(self.alpha)["available"])  # no SOUL.md / AGENTS.md
 
     def test_memory_preview(self):
         m = memory.read(self.alpha)
@@ -217,9 +233,41 @@ class ReaderTests(unittest.TestCase):
         main = next(pr for pr in p["profiles"] if pr["name"] == "main")
         self.assertEqual(main["sessions"], 2)  # counted from state.db, not jsonl
 
+    def test_tools_usage(self):
+        d = tempfile.mkdtemp(prefix="admsys-tools-")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        _messages_db(os.path.join(d, "state.db"),
+                     ["terminal", "terminal", "search", "", None])
+        t = tools.read(d)
+        self.assertTrue(t["available"])
+        self.assertEqual(t["total"], 3)        # 3 tool rows, 2 non-tool ignored
+        self.assertEqual(t["distinct"], 2)
+        self.assertEqual(t["top"][0], {"name": "terminal", "count": 2})
+
+    def test_disk_footprint(self):
+        d = disk._scan(self.alpha)          # synchronous scan (read() is async-cached)
+        self.assertTrue(d["available"])
+        self.assertGreater(d["total_bytes"], 0)
+        self.assertTrue(d["items"])
+        sizes = [it["bytes"] for it in d["items"]]
+        self.assertEqual(sizes, sorted(sizes, reverse=True))   # biggest first
+
+    def test_disk_read_nonblocking(self):
+        # first read returns instantly with a computing placeholder (bg refresh)
+        d = disk.read(self.alpha)
+        self.assertTrue(d["available"])
+        self.assertIn("total_bytes", d)
+
+    def test_vault_status(self):
+        v = vault.read(self.alpha)
+        self.assertTrue(v["available"])
+        self.assertEqual(v["entries"], 1)      # fixture wrote vault/secret1
+        self.assertTrue(v["locked"])           # auth.lock present
+        self.assertFalse(vault.read(self.empty)["available"])  # no vault/ dir
+
     def test_all_readers_failsoft_on_empty(self):
         for r in (gateway, kanban, cron, sessions, profiles, skills,
-                  logs, memory, soul, channels, tokens):
+                  logs, memory, soul, channels, tokens, tools, disk, vault):
             out = r.read(self.empty)
             self.assertIn("available", out, r.__name__)
             # never raises, always returns a dict with an availability flag

@@ -24,30 +24,46 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator(".kpi").first()).toBeVisible();
 });
 
-test('custom_ui_test — "running"/"stopped"/"clear" filters work on every tab', async ({ page }) => {
+test('custom_ui_test — GLOBAL: "running"/"stopped"/"clear" filters work on every tab', async ({ page }) => {
+  // heaviest test: 7 tabs × full filter matrix (~70 assertions). The global 15s
+  // is tight for it under full-suite load — give it room so it doesn't time out.
+  test.setTimeout(45000);
+  const fActive = page.locator("#f-active");
+  const fStopped = page.locator("#f-stopped");
+  const fClear = page.locator("#f-clear");
+
   for (const tab of TABS) {
     await page.locator(`.tabbtn[data-tab="${tab}"]`).click();
+    // wait for the tab to actually be the active section before filtering
+    await expect(page.locator(`#tab-${tab}`)).toHaveClass(/\bactive\b/);
 
-    // running -> only alpha
-    await page.locator("#f-active").click();
+    // running -> only alpha. Anchor on the button's .on state first: its click
+    // handler toggles .on AND calls renderAll() synchronously, so once .on is
+    // set the cards have already re-rendered — kills the click-vs-render race.
+    await fActive.click();
+    await expect(fActive).toHaveClass(/\bon\b/);
     await expect(empty(page, tab)).toHaveCount(0);
     await expect(alpha(page, tab).first()).toBeVisible();
 
     // clear -> both
-    await page.locator("#f-clear").click();
+    await fClear.click();
+    await expect(fActive).not.toHaveClass(/\bon\b/);
+    await expect(fStopped).not.toHaveClass(/\bon\b/);
     await expect(alpha(page, tab).first()).toBeVisible();
     await expect(empty(page, tab).first()).toBeVisible();
 
     // stopped -> only empty
-    await page.locator("#f-stopped").click();
+    await fStopped.click();
+    await expect(fStopped).toHaveClass(/\bon\b/);
     await expect(alpha(page, tab)).toHaveCount(0);
     await expect(empty(page, tab).first()).toBeVisible();
 
-    await page.locator("#f-clear").click();
+    await fClear.click();
+    await expect(fStopped).not.toHaveClass(/\bon\b/);
   }
 });
 
-test("custom_ui_test — agents dropdown filters every tab", async ({ page }) => {
+test("custom_ui_test — GLOBAL: agents dropdown filters every tab", async ({ page }) => {
   // pick alpha once (selection is global)
   await page.locator("#agentdd-btn").click();
   await page.locator('#agentdd-panel [data-agent="alpha"]').click();
@@ -61,7 +77,7 @@ test("custom_ui_test — agents dropdown filters every tab", async ({ page }) =>
   }
 });
 
-test("custom_ui_test — filter buttons share the same base style + colors", async ({ page }) => {
+test("custom_ui_test — GLOBAL: filter buttons share the same base style + colors", async ({ page }) => {
   const props = ["fontFamily", "fontSize", "fontWeight", "textTransform",
     "borderTopWidth", "borderTopStyle", "borderTopColor",
     "borderRadius", "paddingTop", "paddingLeft",
@@ -75,7 +91,7 @@ test("custom_ui_test — filter buttons share the same base style + colors", asy
   expect(base[0].borderTopWidth).toBe("2px");
 });
 
-test("custom_ui_test — filter buttons share the same hover effect", async ({ page }) => {
+test("custom_ui_test — GLOBAL: filter buttons share the same hover effect", async ({ page }) => {
   const shadows = [];
   for (const sel of FILTER_BTNS) {
     await page.locator(sel).hover();
@@ -87,7 +103,7 @@ test("custom_ui_test — filter buttons share the same hover effect", async ({ p
   for (let i = 1; i < shadows.length; i++) expect(shadows[i]).toBe(shadows[0]);
 });
 
-test("custom_ui_test — filter buttons share the same press effect", async ({ page }) => {
+test("custom_ui_test — GLOBAL: filter buttons share the same press effect", async ({ page }) => {
   const states = [];
   for (const sel of FILTER_BTNS) {
     const btn = page.locator(sel);
@@ -107,4 +123,81 @@ test("custom_ui_test — filter buttons share the same press effect", async ({ p
     expect(st.transform).toBe("matrix(1, 0, 0, 1, 3, 3)");
   }
   for (let i = 1; i < states.length; i++) expect(states[i]).toEqual(states[0]);
+});
+
+test("custom_ui_test — OVERVIEW: KPI boxes share the same base style + colors", async ({ page }) => {
+  // the per-box ACCENT (on .kpi-num / .kpi-icon) varies by design; the box
+  // chrome — border, background, base offset shadow, padding — must be uniform.
+  const props = ["borderTopWidth", "borderTopStyle", "borderTopColor",
+    "borderRadius", "paddingTop", "paddingLeft", "backgroundColor", "boxShadow"];
+  const boxes = page.locator(".topgrid .kpi");
+  const n = await boxes.count();
+  expect(n).toBe(9);
+  const base = [];
+  for (let i = 0; i < n; i++) base.push(await readStyle(boxes.nth(i), props));
+  for (let i = 1; i < n; i++) expect(base[i]).toEqual(base[0]);
+  expect(base[0].borderRadius).toBe("0px");      // square neo-brutalist
+  expect(base[0].boxShadow).not.toBe("none");    // hard offset base shadow
+});
+
+test("custom_ui_test — OVERVIEW: KPI boxes share the same hover effect", async ({ page }) => {
+  const boxes = page.locator(".topgrid .kpi");
+  const n = await boxes.count();
+  const shadows = [];
+  for (let i = 0; i < n; i++) {
+    await boxes.nth(i).hover();
+    await page.waitForTimeout(200); // let the box-shadow transition settle
+    shadows.push(await boxes.nth(i).evaluate(el => getComputedStyle(el).boxShadow));
+    await page.mouse.move(0, 0);    // unhover
+  }
+  for (const s of shadows) expect(s).not.toBe("none"); // hover adds an offset shadow
+  for (let i = 1; i < n; i++) expect(shadows[i]).toBe(shadows[0]);
+});
+
+// the same shared agentCard() drives the top cards on both Overview and Agents
+const CARD_TABS = ["overview", "agents"];
+
+async function activateTab(page, tab) {
+  await page.locator(`.tabbtn[data-tab="${tab}"]`).click();
+  await expect(page.locator(`#tab-${tab}`)).toHaveClass(/\bactive\b/);
+}
+
+// the card shadow COLOR is the per-card health accent (green/red/yellow), exactly
+// like the KPI accent on .kpi-num — strip it so we compare the shared geometry.
+const stripColor = s => s.replace(/rgba?\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+
+test("custom_ui_test — OVERVIEW/AGENTS: agent cards share the same base style + colors", async ({ page }) => {
+  const props = ["borderTopWidth", "borderTopStyle", "borderTopColor",
+    "borderRadius", "paddingTop", "paddingLeft", "backgroundColor", "boxShadow"];
+  const base = [];
+  for (const tab of CARD_TABS) {
+    await activateTab(page, tab);
+    const cards = page.locator(`#tab-${tab} .agent-card`);
+    const n = await cards.count();
+    expect(n).toBeGreaterThanOrEqual(2);   // fixture: alpha (running) + empty (unknown)
+    for (let i = 0; i < n; i++) {
+      const st = await readStyle(cards.nth(i), props);
+      st.boxShadow = stripColor(st.boxShadow);   // ignore the health-accent color
+      base.push(st);
+    }
+  }
+  for (let i = 1; i < base.length; i++) expect(base[i]).toEqual(base[0]);
+  expect(base[0].borderRadius).toBe("0px");      // square neo-brutalist
+});
+
+test("custom_ui_test — OVERVIEW/AGENTS: agent cards share the same hover effect", async ({ page }) => {
+  const shadows = [];
+  for (const tab of CARD_TABS) {
+    await activateTab(page, tab);
+    const cards = page.locator(`#tab-${tab} .agent-card`);
+    const n = await cards.count();
+    for (let i = 0; i < n; i++) {
+      await cards.nth(i).hover();
+      await page.waitForTimeout(200); // let the box-shadow transition settle
+      shadows.push(stripColor(await cards.nth(i).evaluate(el => getComputedStyle(el).boxShadow)));
+      await page.mouse.move(0, 0);    // unhover
+    }
+  }
+  for (const s of shadows) expect(s).not.toBe("");  // hover shadow present
+  for (let i = 1; i < shadows.length; i++) expect(shadows[i]).toBe(shadows[0]); // same geometry
 });

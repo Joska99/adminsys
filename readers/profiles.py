@@ -11,6 +11,8 @@ import os
 import re
 import sqlite3
 
+from . import sessions as r_sessions, tools as r_tools, skills as r_skills
+
 
 def _model_from_config(config_path):
     """Pull model.default from a Hermes config.yaml without a YAML parser."""
@@ -152,6 +154,22 @@ def _skills(base_path):
     return {"count": total, "categories": cats}
 
 
+def _stats(base_path):
+    """Per-profile session spend/token/source rollup from this profile's own
+    state.db (the agent root counts as the 'main' profile). Trimmed to the few
+    aggregate fields the dashboard sums across all profiles — the heavy `recent`
+    list is dropped to keep the snapshot small."""
+    s = r_sessions.read(base_path)
+    return {
+        "cost_7d": s.get("cost_7d", 0) or 0,
+        "cost_30d": s.get("cost_30d", 0) or 0,
+        "tokens_7d": s.get("tokens_7d", 0) or 0,
+        "tokens_30d": s.get("tokens_30d", 0) or 0,
+        "by_source": s.get("by_source", {}) or {},
+        "daily7": s.get("daily7", []) or [],
+    }
+
+
 def _profile(name, base_path):
     return {
         "name": name,
@@ -163,6 +181,9 @@ def _profile(name, base_path):
         "state": _gw_state(base_path),
         "sessions": _session_count(base_path),
         "skills": _skills(base_path),
+        "stats": _stats(base_path),
+        "tools_top": (r_tools.read(base_path) or {}).get("top", []) or [],
+        "skills_used": (r_skills.read(base_path) or {}).get("top_used", []) or [],
     }
 
 

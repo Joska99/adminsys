@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs
 
 from readers import (
     discovery, gateway, kanban, cron, sessions, profiles, skills,
-    logs, memory, soul, channels, tokens,
+    logs, memory, soul, channels, tokens, tools, disk, vault,
 )
 
 DATA_ROOT = os.environ.get("DATA_ROOT", "/data")
@@ -23,6 +23,23 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "1999"))
 SSE_INTERVAL = int(os.environ.get("SSE_INTERVAL", "5"))
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
+
+
+def _load_dashboard_urls():
+    """DASHBOARD_URLS env: JSON map {agent_name: url} -> the agent's Hermes
+    native dashboard. Deployment config (host ports live in the gateway compose,
+    not in the agent data). Only http(s) URLs are kept, to keep the link safe."""
+    try:
+        raw = json.loads(os.environ.get("DASHBOARD_URLS", "{}"))
+    except ValueError:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {k: v for k, v in raw.items()
+            if isinstance(v, str) and v.startswith(("http://", "https://"))}
+
+
+DASHBOARD_URLS = _load_dashboard_urls()
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")          # browser-served files (html/css/js)
@@ -52,6 +69,7 @@ def build_snapshot():
         agents.append({
             "name": name,
             "model": model,
+            "dashboard_url": DASHBOARD_URLS.get(name),
             "gateway": _safe(gateway, path),
             "kanban": _safe(kanban, path),
             "cron": _safe(cron, path),
@@ -63,6 +81,9 @@ def build_snapshot():
             "soul": _safe(soul, path),
             "channels": _safe(channels, path),
             "tokens": _safe(tokens, path),
+            "tools": _safe(tools, path),
+            "disk": _safe(disk, path),
+            "vault": _safe(vault, path),
         })
     return {
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -159,6 +180,7 @@ class Handler(BaseHTTPRequestHandler):
         "config": ("config.yaml", "text/plain; charset=utf-8"),
         "profile": ("profile.yaml", "text/plain; charset=utf-8"),
         "soul": ("SOUL.md", "text/markdown; charset=utf-8"),
+        "agents": ("AGENTS.md", "text/markdown; charset=utf-8"),
         "memory": (os.path.join("memories", "MEMORY.md"), "text/markdown; charset=utf-8"),
         "user": (os.path.join("memories", "USER.md"), "text/markdown; charset=utf-8"),
     }

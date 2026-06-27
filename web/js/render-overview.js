@@ -1,4 +1,10 @@
-import { $, esc, UI, agents, badgeForState, isActive, isStale, relTime, tsShort, sortRows, arrow, errLine, nextCronRel, SESSION_STALE_MS, sessionAge, fmtUsd } from "./core.js";
+import { $, esc, UI, agents, badgeForState, isActive, isStale, relTime, tsShort, sortRows, arrow, errLine, nextCronRel, SESSION_STALE_MS, sessionAge, fmtUsd, SNAP } from "./core.js";
+
+// pixel icons for the kanban-tasks, blocked-tasks and tokens KPI boxes
+const ICON_KANBAN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M27.432 4.575h1.52v25.9h-1.52Z"></path><path d="M25.902 3.045h1.53v1.53h-1.53Z"></path><path d="M24.382 1.525h1.52v1.52h-1.52Z"></path><path d="M25.9 7.615h-1.52V6.1h-1.52V4.575h-1.53v-1.53H3.052V32H25.9Zm-1.52 22.86H4.572v-25.9h13.71v6.09h6.1Z"></path><path d="M4.572 -0.005h19.81v1.53H4.572Z"></path><path d="M7.622 25.905h13.71v1.52H7.622Z"></path><path d="M7.622 19.805h13.71v1.53H7.622Z"></path><path d="M7.622 13.715h13.71v1.52H7.622Z"></path><path d="M7.622 7.615h6.09v1.53h-6.09Z"></path></g></svg>';
+const ICON_FAILS = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M3.05 32h25.9V7.62h-1.52V6.1h-1.52V4.57h-1.53V3.05h-1.52V1.52h-1.53V0H3.05ZM4.57 1.52h15.24v7.62h7.62v21.34H4.57Z"></path><path d="m7.62 19.81 0 1.52 10.67 0 0 3.05 1.52 0 0 -3.05 3.05 0 0 3.05 1.52 0 0 -4.57 -16.76 0z"></path><path d="m22.86 12.19 -1.53 0 0 1.52 -1.52 0 0 1.53 1.52 0 0 1.52 1.53 0 0 -1.52 1.52 0 0 -1.53 -1.52 0 0 -1.52z"></path><path d="M19.81 24.38h3.05v1.52h-3.05Z"></path><path d="m9.14 16.76 1.53 0 0 -1.52 1.52 0 0 -1.53 -1.52 0 0 -1.52 -1.53 0 0 1.52 -1.52 0 0 1.53 1.52 0 0 1.52z"></path></g></svg>';
+const ICON_ALERT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M30.48 27.43H32v3.05h-1.52Z"></path><path d="M28.95 24.38h1.53v3.05h-1.53Z"></path><path d="M1.52 30.48h28.96V32H1.52Z"></path><path d="M27.43 21.33h1.52v3.05h-1.52Z"></path><path d="M25.9 18.29h1.53v3.04H25.9Z"></path><path d="M24.38 15.24h1.52v3.05h-1.52Z"></path><path d="M22.86 12.19h1.52v3.05h-1.52Z"></path><path d="M21.33 9.14h1.53v3.05h-1.53Z"></path><path d="M19.81 6.09h1.52v3.05h-1.52Z"></path><path d="M18.29 3.05h1.52v3.04h-1.52Z"></path><path d="m18.29 21.33 -4.58 0 0 1.53 -1.52 0 0 4.57 1.52 0 0 1.52 4.58 0 0 -1.52 1.52 0 0 -4.57 -1.52 0 0 -1.53z"></path><path d="M18.29 9.14h-4.58v1.53h-1.52v6.09h1.52v3.05h4.58v-3.05h1.52v-6.09h-1.52Zm0 6.1h-1.53v-3.05h-1.52v-1.52h1.52v1.52h1.53Z"></path><path d="M16.76 1.52h1.53v1.53h-1.53Z"></path><path d="M15.24 0h1.52v1.52h-1.52Z"></path><path d="M13.71 1.52h1.53v1.53h-1.53Z"></path><path d="M12.19 3.05h1.52v3.04h-1.52Z"></path><path d="M10.67 6.09h1.52v3.05h-1.52Z"></path><path d="M9.14 9.14h1.53v3.05H9.14Z"></path><path d="M7.62 12.19h1.52v3.05H7.62Z"></path><path d="M6.09 15.24h1.53v3.05H6.09Z"></path><path d="M4.57 18.29h1.52v3.04H4.57Z"></path><path d="M3.05 21.33h1.52v3.05H3.05Z"></path><path d="M1.52 24.38h1.53v3.05H1.52Z"></path><path d="M0 27.43h1.52v3.05H0Z"></path></g></svg>';
+const ICON_TOKENS = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M30.48 6.1V1.52h-4.57v1.53H6.1V1.52H1.52V6.1h1.53v19.81H1.52v4.57H6.1v-1.53h19.81v1.53h4.57v-4.57h-1.53V6.1Zm-3.05 19.81h-1.52v1.52H6.1v-1.52H4.57V6.1H6.1V4.57h19.81V6.1h1.52Z"></path><path d="M21.33 9.14h1.53v3.05h-1.53Z"></path><path d="m10.67 7.62 0 1.52 4.57 0 0 13.72 -3.05 0 0 1.52 7.62 0 0 -1.52 -3.05 0 0 -13.72 4.57 0 0 -1.52 -10.66 0z"></path><path d="M9.14 9.14h1.53v3.05H9.14Z"></path></g></svg>';
 
 // corner badge marking a KPI box as a clickable jump (inherits the box accent)
 const LINK_ICON = '<span class="kpi-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M28.195 20.575h1.52v6.09h-1.52Z"></path><path d="M26.665 26.665h1.53v1.53h-1.53Z"></path><path d="M26.665 19.055h1.53v1.52h-1.53Z"></path><path d="M25.145 17.525h1.52v1.53h-1.52Z"></path><path d="M20.575 28.195h6.09v1.52h-6.09Z"></path><path d="M23.615 16.005h1.53v1.52h-1.53Z"></path><path d="M19.045 14.475h4.57v1.53h-4.57Z"></path><path d="M19.045 26.665h1.53v1.53h-1.53Z"></path><path d="M17.525 25.145h1.52v1.52h-1.52Z"></path><path d="m14.475 11.435 -3.05 0 0 3.04 1.53 0 0 1.53 1.52 0 0 1.52 1.53 0 0 1.53 1.52 0 0 1.52 3.05 0 0 -3.05 -1.53 0 0 -1.52 -1.52 0 0 -1.53 -1.52 0 0 -1.52 -1.53 0 0 -1.52z"></path><path d="M16.005 23.625h1.52v1.52h-1.52Z"></path><path d="M16.005 8.385h1.52v4.57h-1.52Z"></path><path d="M14.475 19.055h1.53v4.57h-1.53Z"></path><path d="M14.475 6.865h1.53v1.52h-1.53Z"></path><path d="M12.955 5.335h1.52v1.53h-1.52Z"></path><path d="M11.425 3.815h1.53v1.52h-1.53Z"></path><path d="M8.385 16.005h4.57v1.52h-4.57Z"></path><path d="M6.855 14.475h1.53v1.53h-1.53Z"></path><path d="M5.335 2.285h6.09v1.53h-6.09Z"></path><path d="M5.335 12.955h1.52v1.52h-1.52Z"></path><path d="M3.815 11.435h1.52v1.52h-1.52Z"></path><path d="M3.815 3.815h1.52v1.52h-1.52Z"></path><path d="M2.285 5.335h1.53v6.1h-1.53Z"></path></g></svg></span>';
@@ -29,35 +35,70 @@ export function agentCard(a, extra = "") {
   if (failed.length) errs.push(failed.length + " task run(s) failed");
   const banner = errs.length ? `<div class="banner">⚠ ${esc(errs.join(" · "))}</div>` : "";
 
-  // session freshness — would have caught the "sessions frozen" bug at a glance
+  // session freshness — main profile's newest session (would have caught the
+  // "sessions frozen" bug at a glance)
   const la = a.sessions && a.sessions.last_active;
   const laSrc = (((a.sessions || {}).recent || [])[0] || {}).source || "";
   const lastActive = la
-    ? `<div class="lastact">last session ${esc(relTime(la))}${laSrc ? ` · ${esc(laSrc)}` : ""}</div>`
+    ? `<div class="lastact">last main agent session ${esc(relTime(la))}${laSrc ? ` · ${esc(laSrc)}` : ""}</div>`
     : `<div class="lastact">no sessions</div>`;
 
-  const sk = a.skills || {};
+  // all-profile rollups for the stat row + footer (every profile, incl. main)
+  const profs = (a.profiles && a.profiles.profiles) || [];
+  const sessAll = profs.reduce((n, p) => n + (p.sessions || 0), 0);
+  const cronAll = (a.cron && a.cron.jobs) ? a.cron.jobs.length : 0;
+  const tasksAll = ((a.kanban || {}).tasks_total) || 0;
+  let runningAll = 0, cronSess = 0, discordSess = 0, c7 = 0, c30 = 0, t7 = 0, t30 = 0;
+  ((a.kanban && a.kanban.runs) || []).forEach(r => {
+    if ((r.status || "").toLowerCase() === "running") runningAll++;
+  });
+  profs.forEach(p => {
+    const s = p.stats || {}, bs = s.by_source || {};
+    cronSess += bs.cron || 0; discordSess += bs.discord || 0;
+    c7 += s.cost_7d || 0; c30 += s.cost_30d || 0;
+    t7 += s.tokens_7d || 0; t30 += s.tokens_30d || 0;
+  });
+
+  // 7-day session sparkline, summed across all profiles (falls back to main)
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayName = d => { const t = Date.parse(d); return isNaN(t) ? "" : DOW[new Date(t).getUTCDay()]; };
+  const dmap = new Map();
+  profs.forEach(p => ((p.stats || {}).daily7 || []).forEach(x =>
+    dmap.set(x.date, (dmap.get(x.date) || 0) + (x.count || 0))));
+  const d7 = dmap.size
+    ? [...dmap.entries()].sort((x, y) => x[0] < y[0] ? -1 : 1).map(([date, count]) => ({ date, count }))
+    : ((a.sessions && a.sessions.daily7) || []);
+  const sparkMax = Math.max(1, ...d7.map(x => x.count || 0));
+  const spark = d7.length
+    ? `<div class="spark-wrap"><div class="spark-col"><div class="spark">${d7.map(x =>
+        `<i style="height:${Math.round((x.count || 0) / sparkMax * 100)}%" data-tip="${esc(String(x.date).slice(5))}: ${x.count || 0} sessions"></i>`).join("")}</div>` +
+        `<div class="spark-days">${d7.map(x => `<span>${esc(dayName(x.date))}</span>`).join("")}</div></div>` +
+        `<span class="spark-lbl">7d&nbsp;sessions</span></div>`
+    : "";
 
   return `<div class="panel agent-card ${health}">
-    <h3><span class="agentname">${esc(a.name)}</span>
+    <h3><span class="agentname">${esc(a.name)}</span>${a.dashboard_url
+      ? `<a class="dash-link${health === "h-bad" ? " down" : ""}" href="${esc(a.dashboard_url)}" target="_blank" rel="noopener" title="${health === "h-bad" ? "Hermes dashboard (agent down — may be unreachable)" : "open Hermes dashboard"}">↗</a>`
+      : ""}
       <span class="pill mono profile-tag">main</span>
       <span class="pill ${badgeForState(g.gateway_state)}">${esc(g.gateway_state || "unknown")}</span>
       <span class="pill modelpill mono">${esc(a.model || "no model")}</span></h3>
     ${errLine(g)}
     ${banner}
     <div class="stat">
-      <div><div class="num">${(a.sessions && a.sessions.total) || 0}</div><div class="lbl">sessions</div></div>
-      <div><div class="num">${(g.active_agents != null ? g.active_agents : "-")}</div><div class="lbl">active</div></div>
-      <div><div class="num">${(a.cron && a.cron.jobs ? a.cron.jobs.length : 0)}</div><div class="lbl">cron jobs</div></div>
-      <div><div class="num">${(sk.total != null ? sk.total : 0)}</div><div class="lbl">skills</div></div>
-      <div><div class="num">${(a.profiles && a.profiles.profiles ? a.profiles.profiles.length : 0)}</div><div class="lbl">profiles</div></div>
+      <div><div class="num">${profs.length}</div><div class="lbl">profiles</div></div>
+      <div><div class="num">${sessAll}</div><div class="lbl">sessions</div></div>
+      <div><div class="num">${cronAll}</div><div class="lbl">cron jobs</div></div>
+      <div><div class="num">${tasksAll.toLocaleString()}</div><div class="lbl">tasks</div></div>
+      <div><div class="num">${runningAll}</div><div class="lbl">running</div></div>
     </div>
     <div>${plats}</div>
+    ${spark}
     <div class="card-foot">
       ${lastActive}
-      <div class="cardmeta">${(((a.kanban || {}).tasks_total) || 0).toLocaleString()} kanban tasks</div>
-      <div class="cardmeta">${(((a.sessions || {}).by_source || {}).cron || 0)} cron · ${(((a.sessions || {}).by_source || {}).discord || 0)} discord sessions</div>
-      <div class="cardmeta">7d · ${esc(fmtUsd((a.sessions && a.sessions.cost_7d) || 0))} spend · ${(((a.sessions && a.sessions.tokens_7d) || 0)).toLocaleString()} tokens</div>
+      <div class="cardmeta">${tasksAll.toLocaleString()} kanban · ${cronSess} cron · ${discordSess} discord sessions</div>
+      <div class="cardmeta">7d · ${esc(fmtUsd(c7))} spend · ${t7.toLocaleString()} tokens</div>
+      <div class="cardmeta">30d · ${esc(fmtUsd(c30))} spend · ${t30.toLocaleString()} tokens</div>
     </div>
     ${extra}
   </div>`;
@@ -70,18 +111,32 @@ export function renderOverview() {
   // agents() already applies the agent + running/stopped filters
   const cardList = list;
 
-  // box stats reflect only the currently shown cards
-  let activeAgents = 0, totalSessions = 0, runningTasks = 0, cronTotal = 0, cronFailed = 0, spend7d = 0, tokens7d = 0;
+  // box stats reflect only the currently shown cards. sessions / spend / tokens
+  // sum every profile (incl. main); cron + kanban tasks already aggregate profiles.
+  let activeAgents = 0, totalSessions = 0, runningTasks = 0, cronTotal = 0, cronFailed = 0;
+  let spend7d = 0, tokens7d = 0, kanbanTasks = 0, blockedTasks = 0, crashedTasks = 0;
   cardList.forEach(a => {
     activeAgents += (a.gateway && a.gateway.active_agents) || 0;
-    totalSessions += (a.sessions && a.sessions.total) || 0;
-    spend7d += (a.sessions && a.sessions.cost_7d) || 0;
-    tokens7d += (a.sessions && a.sessions.tokens_7d) || 0;
     cronTotal += (a.cron && a.cron.jobs ? a.cron.jobs.length : 0);
     cronFailed += (a.cron && a.cron.failed) || 0;
+    kanbanTasks += ((a.kanban || {}).tasks_total) || 0;
+    blockedTasks += ((a.kanban || {}).blocked) || 0;
+    crashedTasks += ((a.kanban || {}).crashed) || 0;
     ((a.kanban && a.kanban.runs) || []).forEach(r => {
       if ((r.status || "").toLowerCase() === "running") runningTasks++;
     });
+    const profs = (a.profiles && a.profiles.profiles) || [];
+    if (profs.length) {
+      totalSessions += profs.reduce((n, p) => n + (p.sessions || 0), 0);
+      profs.forEach(p => {
+        const s = p.stats || {};
+        spend7d += s.cost_7d || 0; tokens7d += s.tokens_7d || 0;
+      });
+    } else {                       // profiles reader unavailable — fall back to main
+      const s = a.sessions || {};
+      totalSessions += s.total || 0;
+      spend7d += s.cost_7d || 0; tokens7d += s.tokens_7d || 0;
+    }
   });
 
   const profilesTotal = cardList.reduce((n, a) => n + (((a.profiles || {}).profiles || []).length), 0);
@@ -111,13 +166,23 @@ export function renderOverview() {
   }).join("");
   const secChannels = secHead("CHANNELS", "platform bindings") + `<div class="grid">${chHtml}</div>`;
 
-  // TOP SKILLS — top 10 used per agent (skills/.usage.json use_count)
-  const tsHtml = cardList.map(a => {
-    const tu = (a.skills && a.skills.top_used) || [];
-    const rows = tu.map((s, i) => `<tr><td class="muted">${i + 1}</td><td>${esc(s.name)}</td><td>${s.count}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">no usage</td></tr>`;
-    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><table><thead><tr><th>#</th><th>skill</th><th>uses</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  }).join("");
-  const secTopSkills = secHead("TOP SKILLS", "top 10 used per agent") + `<div class="grid">${tsHtml}</div>`;
+  // TOP SKILLS — top 10 used per profile (profile skills/.usage.json use_count)
+  const tsHtml = cardList.flatMap(a =>
+    ((a.profiles && a.profiles.profiles) || []).map(pr => {
+      const tu = pr.skills_used || [];
+      const rows = tu.map((s, i) => `<tr><td class="muted">${i + 1}</td><td>${esc(s.name)}</td><td>${s.count}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">no usage</td></tr>`;
+      return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">${esc(pr.name)}</span></h3><table><thead><tr><th>#</th><th>skill</th><th>uses</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    })).join("");
+  const secTopSkills = secHead("TOP SKILLS", "top 10 used per profile") + `<div class="grid">${tsHtml}</div>`;
+
+  // TOP TOOLS — most-called runtime tools per profile (profile state.db messages)
+  const ttHtml = cardList.flatMap(a =>
+    ((a.profiles && a.profiles.profiles) || []).map(pr => {
+      const tt = pr.tools_top || [];
+      const rows = tt.map((s, i) => `<tr><td class="muted">${i + 1}</td><td>${esc(s.name)}</td><td>${s.count}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">no tool calls</td></tr>`;
+      return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">${esc(pr.name)}</span></h3><table><thead><tr><th>#</th><th>tool</th><th>calls</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    })).join("");
+  const secTopTools = secHead("TOP TOOLS", "top 10 called per profile") + `<div class="grid">${ttHtml}</div>`;
 
   // PROFILES — top 5 profiles by session count (agent · profile · … · sessions)
   const profEntries = cardList.flatMap(a => {
@@ -179,7 +244,7 @@ export function renderOverview() {
     const top = (t.models || [])[0];
     return `<tr><td>${esc(a.name)}</td><td>${(t.total_tokens || 0).toLocaleString()}</td><td>${t.responses || 0}</td><td class="mono">${top ? esc(top.model) + " (" + top.tokens + ")" : "—"}</td></tr>`;
   }).join("");
-  const secTokens = secHead("TOKENS", "usage from response_store.db") +
+  const secTokens = secHead("TOKENS", "API responses · per-model · all-time (response_store.db)") +
     `<div class="panel ovsec"><table><thead><tr><th>agent</th><th>total tokens</th><th>responses</th><th>top model</th></tr></thead><tbody>${tokRows}</tbody></table></div>`;
 
   // SYSTEM HEALTH — single aggregate status line at the very top
@@ -198,7 +263,7 @@ export function renderOverview() {
     ${healthBanner}
     <div class="ov-head">
       <div class="ov-title">▌ SYSTEM OVERVIEW</div>
-      <div class="ov-brief">showing ${cardList.length}/${list.length} agents · ${activeNames.length} active · ${runningTasks} running · ${totalSessions} sessions</div>
+      <div class="ov-brief">showing ${cardList.length}/${(SNAP.agents || []).length} agents</div>
     </div>
     <div class="topgrid">
       <div class="kpi kpi-grn clickable" data-goto="agents" title="open Agents">
@@ -217,33 +282,49 @@ export function renderOverview() {
         ${LINK_ICON}
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="m19.81 26.67 0 1.52 3.04 0 0 1.53 -13.71 0 0 -1.53 3.05 0 0 -1.52 -3.05 0 0 -3.05 -1.52 0 0 6.1 -3.05 0 0 1.52 22.86 0 0 -1.52 -3.05 0 0 -6.1 -1.53 0 0 3.05 -3.04 0z"></path><path d="M21.33 20.57h1.52v3.05h-1.52Z"></path><path d="M21.33 8.38h1.52v3.05h-1.52Z"></path><path d="M19.81 19.05h1.52v1.52h-1.52Z"></path><path d="M18.28 17.53h1.53v1.52h-1.53Z"></path><path d="M16.76 25.14h3.05v1.53h-3.05Z"></path><path d="m19.81 14.48 0 -1.53 1.52 0 0 -1.52 -10.67 0 0 1.52 1.53 0 0 1.53 1.52 0 0 3.05 1.53 0 0 7.61 1.52 0 0 -7.61 1.52 0 0 -3.05 1.53 0z"></path><path d="M12.19 25.14h3.05v1.53h-3.05Z"></path><path d="M12.19 17.53h1.52v1.52h-1.52Z"></path><path d="M10.66 19.05h1.53v1.52h-1.53Z"></path><path d="M9.14 20.57h1.52v3.05H9.14Z"></path><path d="M9.14 8.38h1.52v3.05H9.14Z"></path><path d="m9.14 2.29 13.71 0 0 6.09 1.53 0 0 -6.09 3.05 0 0 -1.53 -22.86 0 0 1.53 3.05 0 0 6.09 1.52 0 0 -6.09z"></path></g></svg></span>
         <div class="kpi-num">${cronTotal}</div>
-        <div class="kpi-title">total crons</div>
+        <div class="kpi-title">cron jobs</div>
       </div>
       <div class="kpi kpi-slate clickable" data-goto="sessions" title="open Sessions">
         ${LINK_ICON}
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="m3.81 1.52 24.38 0 0 1.53 -1.52 0 0 1.52 1.52 0 0 3.05 1.53 0 0 22.86 1.52 0 0 -24.38 -1.52 0 0 -4.58 1.52 0 0 -1.52L3.81 0l0 1.52z"></path><path d="m6.86 30.48 0 -22.86 9.14 0 0 -1.52 -12.19 0 0 1.52 1.53 0 0 22.86 -1.53 0 0 1.52 25.91 0 0 -1.52 -22.86 0z"></path><path d="m25.15 10.67 -1.53 0 0 -4.57 -1.52 0 0 -1.53 1.52 0 0 -1.52 -7.62 0 0 1.52 1.53 0 0 1.53 1.52 0 0 15.23 1.52 0 0 -1.52 1.53 0 0 -1.52 1.52 0 0 1.52 1.53 0 0 1.52 1.52 0 0 -15.23 -1.52 0 0 4.57z"></path><path d="M23.62 4.57h1.53V6.1h-1.53Z"></path><path d="M5.34 3.05h9.14v1.52H5.34Z"></path><path d="M2.29 28.95h1.52v1.53H2.29Z"></path><path d="M2.29 1.52h1.52v1.53H2.29Z"></path><path d="m2.29 6.1 1.52 0 0 -1.53 -1.52 0 0 -1.52 -1.53 0 0 25.9 1.53 0 0 -22.85z"></path></g></svg></span>
         <div class="kpi-num">${totalSessions}</div>
-        <div class="kpi-title">total sessions</div>
+        <div class="kpi-title">sessions</div>
+      </div>
+      <div class="kpi kpi-slate">
+        <span class="kpi-icon">${ICON_KANBAN}</span>
+        <div class="kpi-num">${kanbanTasks.toLocaleString()}</div>
+        <div class="kpi-title">kanban tasks</div>
+      </div>
+      <div class="kpi kpi-slate">
+        <span class="kpi-icon">${ICON_TOKENS}</span>
+        <div class="kpi-num">${(tokens7d || 0).toLocaleString()}</div>
+        <div class="kpi-title">tokens 7d</div>
       </div>
       <div class="kpi kpi-amber">
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="m18.285 6.095 3.05 0 0 1.52 1.52 0 0 1.53 1.53 0 0 3.05 1.52 0 0 7.61 -1.52 0 0 3.05 -1.53 0 0 1.53 -1.52 0 0 1.52 -3.05 0 0 1.52 -7.62 0 0 1.53 10.67 0 0 -1.53 3.05 0 0 -1.52 1.52 0 0 -1.52 1.53 0 0 -1.53 1.52 0 0 -3.05 1.52 0 0 -7.61 -1.52 0 0 -3.05 -1.52 0 0 -1.53 -1.53 0 0 -1.52 -1.52 0 0 -1.52 -3.05 0 0 -1.53 -10.67 0 0 1.53 7.62 0 0 1.52z"></path><path d="M22.855 12.195h1.53v7.61h-1.53Z"></path><path d="M21.335 19.805h1.52v1.53h-1.52Z"></path><path d="M21.335 10.665h1.52v1.53h-1.52Z"></path><path d="M19.815 21.335h1.52v1.52h-1.52Z"></path><path d="M19.815 9.145h1.52v1.52h-1.52Z"></path><path d="M18.285 22.855h1.53v1.53h-1.53Z"></path><path d="M18.285 7.615h1.53v1.53h-1.53Z"></path><path d="M10.665 24.385h7.62v1.52h-7.62Z"></path><path d="M16.765 16.765h1.52v3.04h-1.52Z"></path><path d="M16.765 12.195h1.52v1.52h-1.52Z"></path><path d="M10.665 6.095h7.62v1.52h-7.62Z"></path><path d="m13.715 21.335 0 1.52 1.52 0 0 -1.52 1.53 0 0 -1.53 -1.53 0 0 -3.04 1.53 0 0 -1.53 -1.53 0 0 -3.04 1.53 0 0 -1.53 -1.53 0 0 -1.52 -1.52 0 0 1.52 -1.52 0 0 1.53 1.52 0 0 3.04 -1.52 0 0 1.53 1.52 0 0 3.04 -1.52 0 0 1.53 1.52 0z"></path><path d="M10.665 18.285h1.53v1.52h-1.53Z"></path><path d="M10.665 12.195h1.53v3.04h-1.53Z"></path><path d="M7.625 25.905h3.04v1.52h-3.04Z"></path><path d="M9.145 22.855h1.52v1.53h-1.52Z"></path><path d="M9.145 7.615h1.52v1.53h-1.52Z"></path><path d="M7.625 4.575h3.04v1.52h-3.04Z"></path><path d="M7.625 21.335h1.52v1.52h-1.52Z"></path><path d="M7.625 9.145h1.52v1.52h-1.52Z"></path><path d="M6.095 24.385h1.53v1.52h-1.53Z"></path><path d="M6.095 19.805h1.53v1.53h-1.53Z"></path><path d="M6.095 10.665h1.53v1.53h-1.53Z"></path><path d="M6.095 6.095h1.53v1.52h-1.53Z"></path><path d="M4.575 22.855h1.52v1.53h-1.52Z"></path><path d="M4.575 12.195h1.52v7.61h-1.52Z"></path><path d="M4.575 7.615h1.52v1.53h-1.52Z"></path><path d="M3.045 19.805h1.53v3.05h-1.53Z"></path><path d="M3.045 9.145h1.53v3.05h-1.53Z"></path><path d="M1.525 12.195h1.52v7.61h-1.52Z"></path></g></svg></span>
         <div class="kpi-num">${esc(fmtUsd(spend7d))}</div>
         <div class="kpi-title">spend 7d</div>
       </div>
-      <div class="kpi kpi-org">
-        <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M30.47 28.95H32v1.53h-1.53Z"></path><path d="m30.47 1.52 -1.52 0 0 1.53 -1.52 0 0 1.52 1.52 0 0 1.53 1.52 0 0 -1.53 1.53 0 0 -1.52 -1.53 0 0 -1.53z"></path><path d="M28.95 22.86h1.52v1.52h-1.52Z"></path><path d="M27.43 24.38h1.52v1.53h-1.52Z"></path><path d="M27.43 21.33h1.52v1.53h-1.52Z"></path><path d="M27.43 15.24h1.52v1.52h-1.52Z"></path><path d="M27.43 9.14h1.52v1.53h-1.52Z"></path><path d="M25.9 22.86h1.53v1.52H25.9Z"></path><path d="M25.9 16.76h1.53v1.53H25.9Z"></path><path d="M25.9 7.62h1.53v1.52H25.9Z"></path><path d="M24.38 18.29h1.52v1.52h-1.52Z"></path><path d="M24.38 6.1h1.52v1.52h-1.52Z"></path><path d="m24.38 32 0 -1.52 1.52 0 0 -1.53 -1.52 0 0 -1.52 -1.53 0 0 1.52 -1.52 0 0 1.53 1.52 0 0 1.52 1.53 0z"></path><path d="M22.85 19.81h1.53v1.52h-1.53Z"></path><path d="M21.33 21.33h1.52v1.53h-1.52Z"></path><path d="M21.33 15.24h1.52v1.52h-1.52Z"></path><path d="M21.33 9.14h1.52v1.53h-1.52Z"></path><path d="M21.33 1.52h1.52v1.53h-1.52Z"></path><path d="M19.81 22.86h1.52v1.52h-1.52Z"></path><path d="M19.81 16.76h1.52v3.05h-1.52Z"></path><path d="M19.81 7.62h1.52v1.52h-1.52Z"></path><path d="M18.28 19.81h1.53v3.05h-1.53Z"></path><path d="m18.28 22.86 -1.52 0 0 4.57 1.52 0 0 -1.52 1.53 0 0 -1.53 -1.53 0 0 -1.52z"></path><path d="M16.76 0h1.52v1.52h-1.52Z"></path><path d="M13.71 27.43h3.05v1.52h-3.05Z"></path><path d="m13.71 22.86 -1.52 0 0 1.52 -1.53 0 0 1.53 1.53 0 0 1.52 1.52 0 0 -4.57z"></path><path d="M10.66 19.81h1.53v3.05h-1.53Z"></path><path d="M9.14 22.86h1.52v1.52H9.14Z"></path><path d="M9.14 16.76h1.52v3.05H9.14Z"></path><path d="M9.14 7.62h1.52v1.52H9.14Z"></path><path d="M9.14 1.52h1.52v1.53H9.14Z"></path><path d="M7.62 27.43h1.52v1.52H7.62Z"></path><path d="M7.62 21.33h1.52v1.53H7.62Z"></path><path d="M7.62 15.24h1.52v1.52H7.62Z"></path><path d="M7.62 9.14h1.52v1.53H7.62Z"></path><path d="m10.66 6.1 0 1.52 1.53 0 0 -1.52 6.09 0 0 1.52 1.53 0 0 -1.52 4.57 0 0 -1.53 -18.29 0 0 1.53 4.57 0z"></path><path d="M6.09 19.81h1.53v1.52H6.09Z"></path><path d="M4.57 18.29h1.52v1.52H4.57Z"></path><path d="M4.57 6.1h1.52v1.52H4.57Z"></path><path d="M3.04 24.38h1.53v1.53H3.04Z"></path><path d="M3.04 16.76h1.53v1.53H3.04Z"></path><path d="M3.04 7.62h1.53v1.52H3.04Z"></path><path d="M1.52 30.48h1.52V32H1.52Z"></path><path d="M1.52 25.91h1.52v1.52H1.52Z"></path><path d="M1.52 22.86h1.52v1.52H1.52Z"></path><path d="M1.52 15.24h1.52v1.52H1.52Z"></path><path d="m1.52 13.71 4.57 0 0 1.53 1.53 0 0 -1.53 15.23 0 0 1.53 1.53 0 0 -1.53 4.57 0 0 1.53 1.52 0 0 -4.57 -1.52 0 0 1.52 -4.57 0 0 -1.52 -1.53 0 0 1.52 -15.23 0 0 -1.52 -1.53 0 0 1.52 -4.57 0 0 -1.52 -1.52 0 0 4.57 1.52 0 0 -1.53z"></path><path d="M1.52 9.14h1.52v1.53H1.52Z"></path><path d="m1.52 4.57 1.52 0 0 -1.52 1.53 0 0 -1.53 -1.53 0 0 -1.52 -1.52 0 0 1.52 -1.52 0 0 1.53 1.52 0 0 1.52z"></path><path d="M0 24.38h1.52v1.53H0Z"></path></g></svg></span>
-        <div class="kpi-num">${(tokens7d || 0).toLocaleString()}</div>
-        <div class="kpi-title">tokens 7d</div>
-      </div>
-      <div class="kpi kpi-cyn">
+      <div class="kpi-break"></div>
+      <div class="kpi ${activeNames.length > 0 ? "kpi-green" : "kpi-mut"}">
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M1.52 30.475h28.96v-1.52H32v-10.67h-1.52v-1.52H1.52v1.52H0v10.67h1.52Zm24.38 -10.66h3.05v3.05H25.9Zm-7.61 0h4.57v1.52h-3.05v1.53h3.05v1.52h-3.05v1.52h3.05v1.53h-4.57Zm-6.1 0h1.52v6.09h1.53v-6.09h1.52v6.09h-1.52v1.53h-1.53v-1.53h-1.52Zm-3.05 0h1.53v7.62H9.14Zm-6.09 0h1.52v6.09h3.05v1.53H3.05Z"></path><path d="M25.9 7.625h1.53v1.52H25.9Z"></path><path d="M24.38 6.095h1.52v1.53h-1.52Z"></path><path d="M22.86 10.665h1.52v1.53h-1.52Z"></path><path d="M21.33 9.145h1.53v1.52h-1.53Z"></path><path d="M21.33 4.575h3.05v1.52h-3.05Z"></path><path d="M18.29 7.625h3.04v1.52h-3.04Z"></path><path d="M18.29 12.195h1.52v1.52h-1.52Z"></path><path d="M18.29 3.055h3.04v1.52h-3.04Z"></path><path d="M13.71 10.665h4.58v1.53h-4.58Z"></path><path d="M13.71 6.095h4.58v1.53h-4.58Z"></path><path d="M13.71 1.525h4.58v1.53h-4.58Z"></path><path d="M12.19 12.195h1.52v1.52h-1.52Z"></path><path d="M10.67 3.055h3.04v1.52h-3.04Z"></path><path d="M10.67 7.625h3.04v1.52h-3.04Z"></path><path d="M9.14 9.145h1.53v1.52H9.14Z"></path><path d="M7.62 4.575h3.05v1.52H7.62Z"></path><path d="M7.62 10.665h1.52v1.53H7.62Z"></path><path d="M6.1 6.095h1.52v1.53H6.1Z"></path><path d="M4.57 7.625H6.1v1.52H4.57Z"></path></g></svg></span>
         <div class="kpi-num">${activeNames.length}</div>
         <div class="kpi-title">active agents</div>
       </div>
-      <div class="kpi kpi-cyn">
+      <div class="kpi ${runningTasks > 0 ? "kpi-green" : "kpi-mut"}">
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="M30.47 6.1H32v4.57h-1.53Z"></path><path d="M28.95 10.67h1.52v1.52h-1.52Z"></path><path d="M28.95 4.57h1.52V6.1h-1.52Z"></path><path d="M27.43 12.19h1.52v1.52h-1.52Z"></path><path d="M27.43 3.05h1.52v1.52h-1.52Z"></path><path d="M25.9 13.71h1.53v1.53H25.9Z"></path><path d="M25.9 10.67h1.53v1.52H25.9Z"></path><path d="M25.9 1.52h1.53v1.53H25.9Z"></path><path d="M24.38 15.24h1.52v1.52h-1.52Z"></path><path d="M24.38 9.14h1.52v1.53h-1.52Z"></path><path d="M22.85 16.76h1.53v1.53h-1.53Z"></path><path d="M22.85 10.67h1.53v1.52h-1.53Z"></path><path d="M22.85 7.62h1.53v1.52h-1.53Z"></path><path d="M21.33 0h4.57v1.52h-4.57Z"></path><path d="M21.33 18.29h1.52v1.52h-1.52Z"></path><path d="M21.33 12.19h1.52v1.52h-1.52Z"></path><path d="M21.33 6.1h1.52v1.52h-1.52Z"></path><path d="M19.81 19.81h1.52v1.52h-1.52Z"></path><path d="M19.81 13.71h1.52v1.53h-1.52Z"></path><path d="M19.81 7.62h1.52v1.52h-1.52Z"></path><path d="M19.81 4.57h1.52V6.1h-1.52Z"></path><path d="M19.81 1.52h1.52v1.53h-1.52Z"></path><path d="M18.28 21.33h1.53v1.53h-1.53Z"></path><path d="M18.28 15.24h1.53v1.52h-1.53Z"></path><path d="M18.28 9.14h1.53v1.53h-1.53Z"></path><path d="M18.28 3.05h1.53v1.52h-1.53Z"></path><path d="M16.76 22.86h1.52v1.52h-1.52Z"></path><path d="M16.76 16.76h1.52v1.53h-1.52Z"></path><path d="M16.76 10.67h1.52v1.52h-1.52Z"></path><path d="M16.76 4.57h1.52V6.1h-1.52Z"></path><path d="M15.24 24.38h1.52v1.52h-1.52Z"></path><path d="M15.24 18.29h1.52v1.52h-1.52Z"></path><path d="M15.24 12.19h1.52v1.52h-1.52Z"></path><path d="M15.24 6.1h1.52v1.52h-1.52Z"></path><path d="M13.71 25.9h1.53v1.53h-1.53Z"></path><path d="M13.71 19.81h1.53v1.52h-1.53Z"></path><path d="M13.71 13.71h1.53v1.53h-1.53Z"></path><path d="M13.71 7.62h1.53v1.52h-1.53Z"></path><path d="M12.19 27.43h1.52v1.52h-1.52Z"></path><path d="M12.19 21.33h1.52v1.53h-1.52Z"></path><path d="M12.19 15.24h1.52v1.52h-1.52Z"></path><path d="M12.19 9.14h1.52v1.53h-1.52Z"></path><path d="M10.66 22.86h1.53v1.52h-1.53Z"></path><path d="M10.66 16.76h1.53v1.53h-1.53Z"></path><path d="M10.66 10.67h1.53v1.52h-1.53Z"></path><path d="M10.66 30.48h1.53v-1.53h-1.53v-4.57H7.62v-3.05H3.05v-1.52H1.52v1.52H0V32h10.66Zm-1.52 0H4.57v-1.53H3.05v-1.52H1.52v-4.57h4.57v3.04h3.05Z"></path><path d="M9.14 18.29h1.52v1.52H9.14Z"></path><path d="M9.14 12.19h1.52v1.52H9.14Z"></path><path d="M7.62 19.81h1.52v1.52H7.62Z"></path><path d="M7.62 13.71h1.52v1.53H7.62Z"></path><path d="M6.09 15.24h1.53v1.52H6.09Z"></path><path d="M4.57 16.76h1.52v1.53H4.57Z"></path><path d="M3.05 18.29h1.52v1.52H3.05Z"></path></g></svg></span>
         <div class="kpi-num">${runningTasks}</div>
         <div class="kpi-title">running tasks</div>
+      </div>
+      <div class="kpi ${blockedTasks > 0 ? "kpi-yel" : "kpi-mut"}">
+        <span class="kpi-icon">${ICON_ALERT}</span>
+        <div class="kpi-num">${blockedTasks.toLocaleString()}</div>
+        <div class="kpi-title">blocked tasks</div>
+      </div>
+      <div class="kpi ${crashedTasks > 0 ? "kpi-red" : "kpi-mut"}">
+        <span class="kpi-icon">${ICON_FAILS}</span>
+        <div class="kpi-num">${crashedTasks.toLocaleString()}</div>
+        <div class="kpi-title">crashed tasks</div>
       </div>
       <div class="kpi ${cronFailed > 0 ? "kpi-red" : "kpi-mut"}">
         <span class="kpi-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g><path d="m19.81 26.67 0 1.52 3.04 0 0 1.53 -13.71 0 0 -1.53 3.05 0 0 -1.52 -3.05 0 0 -3.05 -1.52 0 0 6.1 -3.05 0 0 1.52 22.86 0 0 -1.52 -3.05 0 0 -6.1 -1.53 0 0 3.05 -3.04 0z"></path><path d="M21.33 20.57h1.52v3.05h-1.52Z"></path><path d="M21.33 8.38h1.52v3.05h-1.52Z"></path><path d="M19.81 19.05h1.52v1.52h-1.52Z"></path><path d="M18.28 17.53h1.53v1.52h-1.53Z"></path><path d="M16.76 25.14h3.05v1.53h-3.05Z"></path><path d="m19.81 14.48 0 -1.53 1.52 0 0 -1.52 -10.67 0 0 1.52 1.53 0 0 1.53 1.52 0 0 3.05 1.53 0 0 7.61 1.52 0 0 -7.61 1.52 0 0 -3.05 1.53 0z"></path><path d="M12.19 25.14h3.05v1.53h-3.05Z"></path><path d="M12.19 17.53h1.52v1.52h-1.52Z"></path><path d="M10.66 19.05h1.53v1.52h-1.53Z"></path><path d="M9.14 20.57h1.52v3.05H9.14Z"></path><path d="M9.14 8.38h1.52v3.05H9.14Z"></path><path d="m9.14 2.29 13.71 0 0 6.09 1.53 0 0 -6.09 3.05 0 0 -1.53 -22.86 0 0 1.53 3.05 0 0 6.09 1.52 0 0 -6.09z"></path></g></svg></span>
@@ -261,13 +342,17 @@ export function renderOverview() {
     </div>
     <div class="grid">${cards}</div>
     <div class="midline"></div>
+    ${secTopSkills}
+    <div class="midline"></div>
+    ${secTopTools}`;
+
+  // TEMP tab — sections moved off Overview
+  $("tab-temp").innerHTML = `
     ${secProfiles}
     <div class="midline"></div>
     ${secSchedule}
     <div class="midline"></div>
     ${secRecent}
-    <div class="midline"></div>
-    ${secTopSkills}
     <div class="midline"></div>
     ${secTokens}
     <div class="midline"></div>

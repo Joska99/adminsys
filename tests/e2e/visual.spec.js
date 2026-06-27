@@ -4,28 +4,29 @@
 const { test, expect } = require("@playwright/test");
 
 const GREEN = "31, 168, 78";
-const PINK = "rgb(196, 42, 134)";
+const PINK = "rgb(196, 42, 134)";   // --pink, still used by the .profile-tag 'main' badge
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".kpi").first()).toBeVisible();
 });
 
-test("KPI row shows 7 boxes in the top grid", async ({ page }) => {
-  await expect(page.locator(".topgrid .kpi")).toHaveCount(7);
+test("KPI row shows 12 boxes in the top grid", async ({ page }) => {
+  await expect(page.locator(".topgrid .kpi")).toHaveCount(12);
 });
 
 test("only the clickable KPI boxes carry the link badge", async ({ page }) => {
-  // 4 clickable boxes: agents, profiles, total sessions, total crons (failed crons is not a button)
+  // 4 clickable boxes: agents, profiles, cron jobs, sessions (failed crons is not a button)
   await expect(page.locator(".kpi.clickable")).toHaveCount(4);
   await expect(page.locator(".kpi.clickable .kpi-link")).toHaveCount(4);
   // non-clickable boxes have no link badge
   await expect(page.locator(".kpi:not(.clickable) .kpi-link")).toHaveCount(0);
 });
 
-test("profiles KPI number uses the pink accent", async ({ page }) => {
+test("profiles KPI number uses its accent color", async ({ page }) => {
+  // agents/profiles/total-crons share the tokens-7d accent: --safety (#FF3E00)
   const num = page.locator(".kpi", { hasText: "profiles" }).first().locator(".kpi-num");
-  await expect(num).toHaveCSS("color", PINK);
+  await expect(num).toHaveCSS("color", "rgb(255, 62, 0)");
 });
 
 test("running agent card carries a green health shadow", async ({ page }) => {

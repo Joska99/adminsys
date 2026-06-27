@@ -127,4 +127,11 @@ export function sessionAge(startedAt){
   return isNaN(t) ? null : (Date.now() - t);
 }
 export function fmtUsd(v){ return "$" + (Number(v) || 0).toFixed(2); }
+export function fmtBytes(v){
+  let n = Number(v) || 0;
+  const u = ["B","KB","MB","GB","TB"];
+  let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return (i === 0 ? n : n.toFixed(1)) + " " + u[i];
+}
 

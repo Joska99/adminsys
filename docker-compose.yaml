@@ -12,13 +12,17 @@ services:
       PORT: "1999"
       SSE_INTERVAL: "5"
       APP_VERSION: "1.0.0"
+      # per-agent Hermes native dashboard URLs (host ports from the gateway
+      # compose: cc=2001 ca=2002 cg=2003). Card shows a ↗ link when set.
+      DASHBOARD_URLS: '{"hermes-cc":"http://127.0.0.1:2001","hermes-ca":"http://127.0.0.1:2002","hermes-cg":"http://127.0.0.1:2003","hermes-cr":"http://127.0.0.1:2004", "AI_Content_Creator_Swarm":"http://127.0.0.1:2005"}'
     volumes:
       # Mount each agent home read-only, one by one, as agents are onboarded.
       # The folder name under /data becomes the agent name in the dashboard.
-      - ${AGNET1}:/data/hermes-cc:ro
-      - ${AGNET2}:/data/hermes-ca:ro
-      - ${AGNET3}:/data/hermes-cg:ro
-      - ${AGNET4}:/data/hermes-news:ro
+      # - ${AGNET1}:/data/hermes-cc:ro
+      # - ${AGNET2}:/data/hermes-ca:ro
+      # - ${AGNET3}:/data/hermes-cg:ro
+      # - ${AGNET4}:/data/hermes-cr:ro
+      - ${AGNET5}:/data/AI_Content_Creator_Swarm:ro
     deploy:
       resources:
         limits: { memory: 254Mb, cpus: "1.0" }

@@ -1,4 +1,4 @@
-import { $, esc, UI, agents, badgeForState, isActive, relTime, tsShort, sortRows, arrow, errLine, fmtUsd } from "./core.js";
+import { $, esc, UI, agents, badgeForState, isActive, relTime, tsShort, sortRows, arrow, errLine, fmtUsd, fmtBytes } from "./core.js";
 import { agentCard } from "./render-overview.js";
 
 /* ---------- Agents (profiles) ---------- */
@@ -18,19 +18,23 @@ export function renderAgents() {
     return agentCard(a, profTable);
   }).join("") || `<div class="empty">No agents.</div>`;
 
-  // SOULS — main agent SOUL.md preview (main profile only)
+  // SOULS — main agent SOUL.md + AGENTS.md previews (main profile only)
   const soulHtml = list.map(a => {
     const so = a.soul || {};
     const badge = `<span class="pill mono profile-tag">main</span>`;
     if (so.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> ${badge}</h3><div class="empty">no soul</div></div>`;
     const a_ = encodeURIComponent(a.name);
-    const pv = so.preview || {};
-    const body = pv.text
-      ? `<pre class="mempre">${esc(pv.text)}${pv.truncated ? "\n…" : ""}</pre>`
-      : `<div class="empty">no preview</div>`;
+    const links = [];
+    if (so.has_soul) links.push(`<a href="/api/file?agent=${a_}&profile=main&name=soul" target="_blank" rel="noopener">SOUL.md ↗</a>`);
+    if (so.has_agents) links.push(`<a href="/api/file?agent=${a_}&profile=main&name=agents" target="_blank" rel="noopener">AGENTS.md ↗</a>`);
+    const previews = [];
+    [["SOUL.md", so.preview], ["AGENTS.md", so.agents_preview]].forEach(([label, pv]) => {
+      if (!pv || !pv.text) return;
+      previews.push(`<div class="proflabel">${label}</div><pre class="mempre">${esc(pv.text)}${pv.truncated ? "\n…" : ""}</pre>`);
+    });
     return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> ${badge}</h3>
-      <div class="loglinks"><a href="/api/file?agent=${a_}&profile=main&name=soul" target="_blank" rel="noopener">SOUL.md ↗</a></div>
-      ${body}</div>`;
+      <div class="loglinks">${links.join(" · ") || `<span class="empty">—</span>`}</div>
+      ${previews.join("") || `<div class="empty">no preview</div>`}</div>`;
   }).join("");
 
   const memHtml = list.map(a => {
@@ -123,20 +127,63 @@ export function renderAgents() {
       <table><thead><tr><th>session</th><th>started</th><th>msgs</th></tr></thead><tbody>${sessRows}</tbody></table></div>`;
   }).join("");
 
+  // TOOLS — runtime tool calls (state.db messages.tool_name), main profile
+  const toolHtml = list.map(a => {
+    const t = a.tools || {};
+    if (t.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3><div class="empty">no tool data</div></div>`;
+    const rows = (t.top || []).map(x =>
+      `<tr><td>${esc(x.name)}</td><td class="mono">${(x.count || 0).toLocaleString()}</td></tr>`
+    ).join("") || `<tr><td colspan="2" class="empty">no tool calls</td></tr>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span>
+        <span class="pill mono">${(t.total || 0).toLocaleString()} calls</span>
+        <span class="pill mono">${t.distinct || 0} tools</span></h3>
+      <table><thead><tr><th>tool</th><th>calls</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join("");
+
+  // DISK — agent home footprint + biggest entries (whole home, cached reader)
+  const diskHtml = list.map(a => {
+    const d = a.disk || {};
+    if (d.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><div class="empty">no disk data</div></div>`;
+    if (d.computing) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span></h3><div class="empty">computing footprint…</div></div>`;
+    const max = Math.max(1, ...(d.items || []).map(x => x.bytes || 0));
+    const rows = (d.items || []).map(x =>
+      `<tr><td class="mono">${esc(x.name)}</td><td class="mono">${esc(fmtBytes(x.bytes))}</td>
+        <td><span class="bar" style="width:${Math.round((x.bytes || 0) / max * 100)}%"></span></td></tr>`
+    ).join("") || `<tr><td colspan="3" class="empty">empty</td></tr>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span>
+        <span class="pill mono">${esc(fmtBytes(d.total_bytes))} total</span></h3>
+      <table><thead><tr><th>entry</th><th>size</th><th>share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join("");
+
+  // VAULT — local vault entry count + auth lock state (no secret content), main
+  const vaultHtml = list.map(a => {
+    const v = a.vault || {};
+    if (v.available === false) return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span></h3><div class="empty">no vault</div></div>`;
+    return `<div class="panel"><h3><span class="agentname">${esc(a.name)}</span> <span class="pill mono profile-tag">main</span>
+        <span class="pill mono">${v.entries || 0} entries</span>
+        <span class="pill ${v.locked ? "b-bad bad" : "b-ok ok"}">${v.locked ? "auth locked" : "auth ok"}</span></h3></div>`;
+  }).join("");
+
   $("tab-agents").innerHTML = `
     <div class="grid">${profHtml}</div>
-    <div class="midline"></div>
-    ${head("SKILLS USAGE", "active skills · uses per skill")}<div class="grid">${skHtml}</div>
-    <div class="midline"></div>
-    ${head("TOKENS", "main profile · total · 30d · 7d")}<div class="grid">${tokHtml}</div>
     <div class="midline"></div>
     ${head("SOULS", "SOUL.md persona · main profile")}<div class="grid">${soulHtml}</div>
     <div class="midline"></div>
     ${head("MEMORY", "MEMORY.md · USER.md preview")}<div class="grid">${memHtml}</div>
     <div class="midline"></div>
+    ${head("SKILLS USAGE", "active skills · uses per skill")}<div class="grid">${skHtml}</div>
+    <div class="midline"></div>
+    ${head("TOOLS", "runtime tool calls · top tools (state.db) · main profile")}<div class="grid">${toolHtml}</div>
+    <div class="midline"></div>
+    ${head("TOKENS", "session tokens · total / 30d / 7d (state.db) · main profile")}<div class="grid">${tokHtml}</div>
+    <div class="midline"></div>
+    ${head("RECENT", "last 5 task runs · last 5 sessions · log issues")}<div class="grid">${recHtml}</div>
+    <div class="midline"></div>
     ${head("CHANNELS", "platform bindings · channels · dms · threads")}<div class="grid">${chHtml}</div>
     <div class="midline"></div>
-    ${head("RECENT", "last 5 task runs · last 5 sessions · log issues")}<div class="grid">${recHtml}</div>`;
+    ${head("DISK", "agent home footprint · biggest entries")}<div class="grid">${diskHtml}</div>
+    <div class="midline"></div>
+    ${head("VAULT", "local vault entries · auth lock · main profile")}<div class="grid">${vaultHtml}</div>`;
 }
 
 /* ---------- Profiles (per agent → per profile: desc, skills, channels) ---------- */

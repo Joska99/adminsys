@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Hermes Mission Control</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FF3E00'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='17' font-weight='bold' fill='%23000' text-anchor='middle'%3E%23_%3C/text%3E%3C/svg%3E" />
 <script>try{if(localStorage.theme==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
 <link rel="stylesheet" href="/styles.css" />
 </head>
@@ -18,6 +19,7 @@
     <nav id="tabs">
       <button class="tabbtn active" data-tab="overview"><span class="ic"></span>Overview</button>
       <button class="tabbtn" data-tab="agents"><span class="ic"></span>Agents</button>
+      <button class="tabbtn" data-tab="temp"><span class="ic"></span>Temp</button>
       <button class="tabbtn" data-tab="profiles"><span class="ic"></span>Profiles</button>
       <button class="tabbtn" data-tab="schedule"><span class="ic"></span>Cron</button>
       <button class="tabbtn" data-tab="tasks"><span class="ic"></span>Tasks</button>
@@ -28,30 +30,23 @@
 
   <div class="content">
     <header>
-      <div class="sysbrand">
-        <span class="prompt">#_</span>
-        <div class="sysbrand-txt">
-          <div class="sysbrand-1">ADMIN.SYS</div>
-          <div class="sysbrand-2">version: <span id="appver">—</span></div>
-        </div>
-      </div>
-      <span class="hsep">|</span>
       <div class="hstatus-col">
         <div class="hstatus"><span class="dot" id="livedot"></span> live feed · updated <span id="live-ago">just now</span></div>
         <div class="hbadges">
           <span class="pill mono" id="agentcount">0 agents</span>
           <span class="pill mono" id="profilecount">0 profiles</span>
+          <span class="pill mono">v<span id="appver">—</span></span>
         </div>
       </div>
       <div class="spacer"></div>
-      <span class="mono" style="font-size:0.75rem;color:var(--muted)">filters</span>
+      <span class="mono hlabel">filters</span>
       <div class="hfilters">
         <button id="f-active" class="filterbtn mono">running</button>
         <button id="f-stopped" class="filterbtn mono">stopped</button>
         <button id="f-clear" class="filterbtn mono">clear</button>
       </div>
       <span class="hsep">|</span>
-      <span class="mono" style="font-size:0.75rem;color:var(--muted)">agents</span>
+      <span class="mono hlabel">agents</span>
       <div id="agentdd" class="agentdd">
         <button id="agentdd-btn" class="ddbtn mono" type="button">all ▾</button>
         <div id="agentdd-panel" class="ddpanel" hidden></div>
@@ -61,7 +56,10 @@
     </header>
 
 <main>
-  <section class="tab active" id="tab-overview"></section>
+  <section class="tab active" id="tab-overview">
+    <div class="skel-grid"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+  </section>
+  <section class="tab" id="tab-temp"></section>
   <section class="tab" id="tab-agents"></section>
   <section class="tab" id="tab-profiles"></section>
   <section class="tab" id="tab-tasks"></section>

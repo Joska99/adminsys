@@ -14,7 +14,8 @@ test("KPI boxes render with the expected titles and numeric values", async ({ pa
   const titles = (await page.locator(".kpi .kpi-title").allInnerTexts())
     .map(s => s.trim().toLowerCase());
   for (const t of ["agents", "profiles", "active agents", "running tasks",
-                   "total sessions", "total crons", "failed crons"]) {
+                   "sessions", "cron jobs", "kanban tasks", "blocked tasks",
+                   "crashed tasks", "failed crons"]) {
     expect(titles).toContain(t);
   }
   // agents KPI shows 2 (alpha + empty)

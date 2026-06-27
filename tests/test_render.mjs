@@ -31,10 +31,15 @@ const SNAP = {
     profiles: { available: true, profiles: [
       { name: "main", model: "test-model", state: "running", sessions: 2, description: null, has_soul: true,
         skills: { count: 2, categories: [{ name: "core", count: 2 }] },
+        skills_used: [{ name: "gen", count: 5 }], tools_top: [{ name: "terminal", count: 5 }],
+        stats: { cost_7d: 1.5, cost_30d: 3, tokens_7d: 15, tokens_30d: 30,
+                 by_source: { cron: 1, discord: 1 }, daily7: [{ date: "2026-06-02", count: 2 }] },
         channels: { channels: [{ platform: "discord", name: "general", id: "1" }], dms: [{ name: "bob" }], threads: 1 } },
       { name: "beta", model: "beta-model", state: "stopped", sessions: 0,
         description: "Beta sub-profile for tests", has_soul: true, has_profile: true,
         skills: { count: 1, categories: [{ name: "research", count: 1 }] },
+        skills_used: [], tools_top: [],
+        stats: { cost_7d: 0, cost_30d: 0, tokens_7d: 0, tokens_30d: 0, by_source: {}, daily7: [] },
         channels: { channels: [{ platform: "discord", name: "news", id: "9" }], dms: [], threads: 0 } },
     ] },
     skills: { available: true, total: 2, by_category: { core: ["gen", "two"] },
@@ -44,6 +49,7 @@ const SNAP = {
     memory: { available: true, has_memory: true, has_user: false },
     channels: { available: true, channels: [{ platform: "discord", name: "general", id: "1" }], dms: [], threads: [], thread_count: 0 },
     tokens: { available: true, responses: 1, total_tokens: 15, models: [{ model: "m1", tokens: 15 }] },
+    tools: { available: true, total: 5, distinct: 1, top: [{ name: "terminal", count: 5 }] },
   }],
 };
 
@@ -78,21 +84,31 @@ tab("overview", ov.renderOverview, "tab-overview", [
   [">profiles<", "KPI: profiles"],
   ["active agents", "KPI: active agents"],
   ["running tasks", "KPI: running tasks"],
-  ["total sessions", "KPI: total sessions"],
-  ["total crons", "KPI: total crons"],
+  ["sessions", "KPI: sessions"],
+  ["cron jobs", "KPI: cron jobs"],
+  ["kanban tasks", "KPI: kanban tasks"],
+  ["blocked tasks", "KPI: blocked tasks"],
+  ["crashed tasks", "KPI: crashed tasks"],
   ["failed crons", "KPI: failed crons"],
-  // sections
+  // sections kept on Overview
   ["AGENTS", "AGENTS section"],
-  ["PROFILES", "PROFILES section"],
-  ["CRON", "CRON (next 5) section"],
   ["TOP SKILLS", "TOP SKILLS section"],
-  ["TOKENS", "TOKENS section"],
-  ["INCIDENTS", "INCIDENTS section"],
+  ["TOP TOOLS", "TOP TOOLS section"],
+  ["terminal", "TOP TOOLS row"],
   // card content
   ["alpha", "agent card name"],
   [">main<", "card main badge"],
   ["test-model", "card model pill"],
   ['data-goto="profiles"', "profiles KPI box links to Profiles tab"],
+]);
+
+// ---- TEMP (sections moved off Overview) ----
+tab("temp", ov.renderOverview, "tab-temp", [
+  ["PROFILES", "PROFILES section"],
+  ["CRON", "CRON (next 5) section"],
+  ["RECENT SESSIONS", "RECENT SESSIONS section"],
+  ["TOKENS", "TOKENS section"],
+  ["INCIDENTS", "INCIDENTS section"],
   ["beta", "PROFILES row shows sub-profile beta"],
 ]);
 

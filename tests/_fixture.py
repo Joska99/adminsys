@@ -91,6 +91,8 @@ def build(root):
     _w(os.path.join(a, "logs", "errors.log"),
        "2026 ERROR boom\n2026 WARNING heads up\nplain info line\n")
     _w(os.path.join(a, "memories", "MEMORY.md"), "remember this")
+    _w(os.path.join(a, "vault", "secret1"), "x")   # 1 vault entry (content irrelevant)
+    _w(os.path.join(a, "auth.lock"), "")           # auth locked
 
     _json(os.path.join(a, "channel_directory.json"), {"platforms": {"discord": [
         {"type": "channel", "name": "general", "id": "1"},
@@ -104,6 +106,7 @@ def build(root):
     _w(os.path.join(b, "profile.yaml"),
        'description: "Beta sub-profile for tests"\ndescription_auto: false\n')
     _w(os.path.join(b, "SOUL.md"), "# Beta\n\nBeta persona soul text.")
+    _w(os.path.join(b, "AGENTS.md"), "# Beta agents\n\nBeta agents instructions.")
     _json(os.path.join(b, "gateway_state.json"), {"gateway_state": "stopped"})
     _json(os.path.join(b, "channel_directory.json"), {"platforms": {"discord": [
         {"type": "channel", "name": "news", "id": "9"},

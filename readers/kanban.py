@@ -44,6 +44,14 @@ def read(agent_path):
         if _table_exists(conn, "tasks"):
             out["tasks_total"] = conn.execute(
                 "SELECT COUNT(*) FROM tasks").fetchone()[0]
+            # task counts by status (lowercased) — drives the blocked-tasks KPI
+            by_status = {}
+            for st, c in conn.execute(
+                    "SELECT status, COUNT(*) FROM tasks GROUP BY status"):
+                by_status[(st or "unknown").lower()] = c
+            out["by_status"] = by_status
+            out["blocked"] = by_status.get("blocked", 0)
+            out["crashed"] = by_status.get("crashed", 0)
             out["tasks"] = _rows(
                 conn,
                 "SELECT * FROM tasks ORDER BY rowid DESC LIMIT ?",
