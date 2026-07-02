@@ -4,7 +4,6 @@
 const { test, expect } = require("@playwright/test");
 
 const GREEN = "31, 168, 78";
-const PINK = "rgb(196, 42, 134)";   // --pink, still used by the .profile-tag 'main' badge
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -23,10 +22,11 @@ test("only the clickable KPI boxes carry the link badge", async ({ page }) => {
   await expect(page.locator(".kpi:not(.clickable) .kpi-link")).toHaveCount(0);
 });
 
-test("profiles KPI number uses its accent color", async ({ page }) => {
-  // agents/profiles/total-crons share the tokens-7d accent: --safety (#FF3E00)
+test("profiles KPI number renders in ink (accent reserved)", async ({ page }) => {
+  // non-semantic count KPIs (agents/profiles/cron/sessions/...) use --ink, not the
+  // orange accent; semantic state KPIs keep green/yellow/red. light theme ink = black.
   const num = page.locator(".kpi", { hasText: "profiles" }).first().locator(".kpi-num");
-  await expect(num).toHaveCSS("color", "rgb(255, 62, 0)");
+  await expect(num).toHaveCSS("color", "rgb(0, 0, 0)");
 });
 
 test("running agent card carries a green health shadow", async ({ page }) => {
@@ -35,13 +35,6 @@ test("running agent card carries a green health shadow", async ({ page }) => {
   await expect(card).toHaveClass(/h-ok/);
   const shadow = await card.evaluate(el => getComputedStyle(el).boxShadow);
   expect(shadow).toContain(GREEN);   // 6px 6px 0 var(--green)
-});
-
-test("the card 'main' badge is styled with the pink profile color", async ({ page }) => {
-  const badge = page.locator('#tab-overview .agent-card',
-    { hasText: "alpha" }).locator(".profile-tag").first();
-  await expect(badge).toHaveText(/main/i);
-  await expect(badge).toHaveCSS("color", PINK);
 });
 
 test("sidebar sits to the left of the content (flex layout)", async ({ page }) => {

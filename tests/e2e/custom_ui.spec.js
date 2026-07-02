@@ -132,7 +132,7 @@ test("custom_ui_test — OVERVIEW: KPI boxes share the same base style + colors"
     "borderRadius", "paddingTop", "paddingLeft", "backgroundColor", "boxShadow"];
   const boxes = page.locator(".topgrid .kpi");
   const n = await boxes.count();
-  expect(n).toBe(9);
+  expect(n).toBe(12);
   const base = [];
   for (let i = 0; i < n; i++) base.push(await readStyle(boxes.nth(i), props));
   for (let i = 1; i < n; i++) expect(base[i]).toEqual(base[0]);

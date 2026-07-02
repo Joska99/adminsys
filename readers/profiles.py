@@ -11,7 +11,9 @@ import os
 import re
 import sqlite3
 
-from . import sessions as r_sessions, tools as r_tools, skills as r_skills
+from . import (sessions as r_sessions, tools as r_tools, skills as r_skills,
+               soul as r_soul, memory as r_memory, vault as r_vault,
+               kanban as r_kanban, logs as r_logs)
 
 
 def _model_from_config(config_path):
@@ -154,23 +156,25 @@ def _skills(base_path):
     return {"count": total, "categories": cats}
 
 
-def _stats(base_path):
+def _stats(s):
     """Per-profile session spend/token/source rollup from this profile's own
     state.db (the agent root counts as the 'main' profile). Trimmed to the few
     aggregate fields the dashboard sums across all profiles — the heavy `recent`
-    list is dropped to keep the snapshot small."""
-    s = r_sessions.read(base_path)
+    list is dropped to keep the snapshot small. `s` is a sessions.read() dict."""
     return {
         "cost_7d": s.get("cost_7d", 0) or 0,
         "cost_30d": s.get("cost_30d", 0) or 0,
+        "cost_total": s.get("cost_total", 0) or 0,
         "tokens_7d": s.get("tokens_7d", 0) or 0,
         "tokens_30d": s.get("tokens_30d", 0) or 0,
+        "tokens_total": s.get("tokens_total", 0) or 0,
         "by_source": s.get("by_source", {}) or {},
         "daily7": s.get("daily7", []) or [],
     }
 
 
 def _profile(name, base_path):
+    sess = r_sessions.read(base_path) or {}
     return {
         "name": name,
         "model": _model_from_config(os.path.join(base_path, "config.yaml")),
@@ -181,9 +185,19 @@ def _profile(name, base_path):
         "state": _gw_state(base_path),
         "sessions": _session_count(base_path),
         "skills": _skills(base_path),
-        "stats": _stats(base_path),
+        "stats": _stats(sess),
         "tools_top": (r_tools.read(base_path) or {}).get("top", []) or [],
         "skills_used": (r_skills.read(base_path) or {}).get("top_used", []) or [],
+        # full per-profile reads so the Agents tab can break every section down
+        # by personality (profile); each reader degrades to {available:false}
+        # when the profile lacks the underlying files.
+        "soul": r_soul.read(base_path),
+        "memory": r_memory.read(base_path),
+        "tools": r_tools.read(base_path),
+        "vault": r_vault.read(base_path),
+        "kanban": r_kanban.read(base_path),
+        "logs": r_logs.read(base_path),
+        "recent_sessions": (sess.get("recent") or [])[:5],
     }
 
 

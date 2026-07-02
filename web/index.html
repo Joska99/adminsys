@@ -9,29 +9,36 @@
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<div class="scanlines"></div>
-<div class="crt-glow"></div>
+<a class="skip-link" href="#main-content">skip to content</a>
 <div class="app">
   <aside class="sidebar">
     <div class="logo">
       <span class="logo-txt"><span class="logo-prompt">#_</span>ADMIN.SYS</span>
     </div>
-    <nav id="tabs">
-      <button class="tabbtn active" data-tab="overview"><span class="ic"></span>Overview</button>
-      <button class="tabbtn" data-tab="agents"><span class="ic"></span>Agents</button>
-      <button class="tabbtn" data-tab="temp"><span class="ic"></span>Temp</button>
-      <button class="tabbtn" data-tab="profiles"><span class="ic"></span>Profiles</button>
-      <button class="tabbtn" data-tab="schedule"><span class="ic"></span>Cron</button>
-      <button class="tabbtn" data-tab="tasks"><span class="ic"></span>Tasks</button>
-      <button class="tabbtn" data-tab="sessions"><span class="ic"></span>Sessions</button>
-      <button class="tabbtn" data-tab="logs"><span class="ic"></span>Logs</button>
+    <nav id="tabs" role="tablist" aria-label="dashboard sections">
+      <button class="tabbtn active" data-tab="overview" id="tabbtn-overview" role="tab" aria-selected="true" aria-controls="tab-overview" tabindex="0"><span class="ic"></span>Overview</button>
+      <button class="tabbtn" data-tab="agents" id="tabbtn-agents" role="tab" aria-selected="false" aria-controls="tab-agents" tabindex="-1"><span class="ic"></span>Agents</button>
+      <button class="tabbtn" data-tab="profiles" id="tabbtn-profiles" role="tab" aria-selected="false" aria-controls="tab-profiles" tabindex="-1"><span class="ic"></span>Profiles</button>
+      <button class="tabbtn" data-tab="schedule" id="tabbtn-schedule" role="tab" aria-selected="false" aria-controls="tab-schedule" tabindex="-1"><span class="ic"></span>Cron</button>
+      <button class="tabbtn" data-tab="tasks" id="tabbtn-tasks" role="tab" aria-selected="false" aria-controls="tab-tasks" tabindex="-1"><span class="ic"></span>Tasks</button>
+      <button class="tabbtn" data-tab="sessions" id="tabbtn-sessions" role="tab" aria-selected="false" aria-controls="tab-sessions" tabindex="-1"><span class="ic"></span>Sessions</button>
+      <button class="tabbtn" data-tab="logs" id="tabbtn-logs" role="tab" aria-selected="false" aria-controls="tab-logs" tabindex="-1"><span class="ic"></span>Logs</button>
     </nav>
+    <details class="legend">
+      <summary>legend</summary>
+      <div class="legend-row"><span class="legend-sw ok"></span> ok · connected · running</div>
+      <div class="legend-row"><span class="legend-sw warn"></span> warning · blocked · paused</div>
+      <div class="legend-row"><span class="legend-sw bad"></span> down · crashed · failed</div>
+      <div class="legend-row"><span class="legend-sw acc"></span> accent · clickable jump</div>
+      <div class="legend-row"><span class="dot legend-dot"></span> live feed (pulsing = fresh)</div>
+      <div class="legend-note">card shadow color = agent health · sparkline = 7-day sessions</div>
+    </details>
   </aside>
 
   <div class="content">
     <header>
       <div class="hstatus-col">
-        <div class="hstatus"><span class="dot" id="livedot"></span> live feed · updated <span id="live-ago">just now</span></div>
+        <div class="hstatus" role="status" aria-live="polite"><span class="dot" id="livedot"></span> live feed · updated <span id="live-ago">just now</span></div>
         <div class="hbadges">
           <span class="pill mono" id="agentcount">0 agents</span>
           <span class="pill mono" id="profilecount">0 profiles</span>
@@ -48,24 +55,31 @@
       <span class="hsep">|</span>
       <span class="mono hlabel">agents</span>
       <div id="agentdd" class="agentdd">
-        <button id="agentdd-btn" class="ddbtn mono" type="button">all ▾</button>
-        <div id="agentdd-panel" class="ddpanel" hidden></div>
+        <button id="agentdd-btn" class="ddbtn mono" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="agentdd-panel">all ▾</button>
+        <div id="agentdd-panel" class="ddpanel" role="listbox" aria-label="filter by agent" hidden></div>
+      </div>
+      <span class="hsep">|</span>
+      <span class="mono hlabel">profile</span>
+      <div id="profdd" class="agentdd">
+        <button id="profdd-btn" class="ddbtn mono" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="profdd-panel">per-card ▾</button>
+        <div id="profdd-panel" class="ddpanel" role="listbox" aria-label="set profile for all cards" hidden></div>
       </div>
       <span class="hsep">|</span>
       <button id="theme-toggle" class="filterbtn mono" type="button" title="toggle light / dark theme">dark</button>
+      <span id="filteractive" class="filteractive" hidden></span>
     </header>
+    <div id="conn-banner" class="connbanner" role="alert" hidden></div>
 
-<main>
-  <section class="tab active" id="tab-overview">
+<main id="main-content">
+  <section class="tab active" id="tab-overview" role="tabpanel" aria-labelledby="tabbtn-overview" tabindex="0">
     <div class="skel-grid"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
   </section>
-  <section class="tab" id="tab-temp"></section>
-  <section class="tab" id="tab-agents"></section>
-  <section class="tab" id="tab-profiles"></section>
-  <section class="tab" id="tab-tasks"></section>
-  <section class="tab" id="tab-schedule"></section>
-  <section class="tab" id="tab-sessions"></section>
-  <section class="tab" id="tab-logs"></section>
+  <section class="tab" id="tab-agents" role="tabpanel" aria-labelledby="tabbtn-agents" tabindex="0"></section>
+  <section class="tab" id="tab-profiles" role="tabpanel" aria-labelledby="tabbtn-profiles" tabindex="0"></section>
+  <section class="tab" id="tab-tasks" role="tabpanel" aria-labelledby="tabbtn-tasks" tabindex="0"></section>
+  <section class="tab" id="tab-schedule" role="tabpanel" aria-labelledby="tabbtn-schedule" tabindex="0"></section>
+  <section class="tab" id="tab-sessions" role="tabpanel" aria-labelledby="tabbtn-sessions" tabindex="0"></section>
+  <section class="tab" id="tab-logs" role="tabpanel" aria-labelledby="tabbtn-logs" tabindex="0"></section>
 </main>
   </div>
 </div>

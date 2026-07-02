@@ -4,7 +4,6 @@ export const SELECTED = new Set();   // empty = all agents
 
 /* ---------- UI state (survives 5s SSE re-renders) ---------- */
 export const UI = {
-  skillQ: "",
   fActive: false,
   fStopped: false,
   fCron: false,
@@ -14,7 +13,37 @@ export const UI = {
   taskSort: { key: "started_at", dir: -1 },
   schedSort: { key: "next_run_at", dir: 1 },
   openSkills: new Set(),
+  profSel: {},        // per-card selected profile ("section:agent" -> name | "__all")
+  profGlobal: null,   // global override for every card: null | name | "__all"
 };
+
+/* ---------- persist UI + agent selection across reloads (localStorage) ---------- */
+const LS_KEY = "adminsys.ui";
+export function saveUI() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      fActive: UI.fActive, fStopped: UI.fStopped, fCron: UI.fCron,
+      logErr: UI.logErr, logWarn: UI.logWarn, taskStatus: UI.taskStatus,
+      taskSort: UI.taskSort, schedSort: UI.schedSort,
+      openSkills: [...UI.openSkills], selected: [...SELECTED],
+      profSel: UI.profSel, profGlobal: UI.profGlobal,
+    }));
+  } catch (e) {}
+}
+function loadUI() {
+  let o;
+  try { o = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch (e) { return; }
+  if (!o || typeof o !== "object") return;
+  for (const k of ["fActive", "fStopped", "fCron", "logErr", "logWarn", "taskStatus"])
+    if (k in o) UI[k] = o[k];
+  if (o.taskSort && o.taskSort.key) UI.taskSort = o.taskSort;
+  if (o.schedSort && o.schedSort.key) UI.schedSort = o.schedSort;
+  if (Array.isArray(o.openSkills)) UI.openSkills = new Set(o.openSkills);
+  if (o.profSel && typeof o.profSel === "object") UI.profSel = o.profSel;
+  if (typeof o.profGlobal === "string") UI.profGlobal = o.profGlobal;
+  if (Array.isArray(o.selected)) o.selected.forEach(n => SELECTED.add(n));
+}
+loadUI();
 const STALE_MS = 10 * 60 * 1000;
 
 export function isStale(updatedAt) {
@@ -97,6 +126,31 @@ export function syncAgentFilter() {
     `<span class="filterbtn ${allOn ? "on" : ""}" data-agent="*">all</span>` +
     names.map(n => `<span class="filterbtn ${SELECTED.has(n) ? "on" : ""}" data-agent="${esc(n)}">${esc(n)}</span>`).join("");
   btn.textContent = (allOn ? "all" : SELECTED.size === 1 ? [...SELECTED][0] : SELECTED.size + " agents") + " ▾";
+}
+
+// resolve which profile a per-profile card should show: explicit per-card pick
+// wins, else the global override, else the first profile (main). Clamped to the
+// profiles this agent actually has so a global name never blanks a card.
+export function profSelFor(key, profs) {
+  if (!profs || !profs.length) return null;
+  let cand = Object.prototype.hasOwnProperty.call(UI.profSel, key) ? UI.profSel[key] : UI.profGlobal;
+  if (!cand) return profs[0].name;
+  if (cand === "__all") return "__all";
+  return profs.some(p => p.name === cand) ? cand : profs[0].name;
+}
+
+// populate the header "profile" dropdown: per-card / all / each distinct profile
+// name across agents (main first). Mirrors syncAgentFilter.
+export function syncProfileFilter() {
+  const panel = $("profdd-panel"), btn = $("profdd-btn");
+  if (!panel || !btn) return;
+  const set = new Set();
+  (SNAP.agents || []).forEach(a => ((a.profiles && a.profiles.profiles) || []).forEach(p => set.add(p.name)));
+  const names = [...set].sort((x, y) => (x === "main" ? -1 : y === "main" ? 1 : x < y ? -1 : x > y ? 1 : 0));
+  const g = UI.profGlobal || "";
+  const opt = (val, label) => `<span class="filterbtn ${g === val ? "on" : ""}" data-pg="${esc(val)}">${esc(label)}</span>`;
+  panel.innerHTML = opt("", "per-card") + opt("__all", "all profiles") + names.map(n => opt(n, n)).join("");
+  btn.textContent = (!UI.profGlobal ? "per-card" : UI.profGlobal === "__all" ? "all" : UI.profGlobal) + " ▾";
 }
 
 export function goTab(name) {
