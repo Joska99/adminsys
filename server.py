@@ -137,6 +137,70 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def _send_text(self, text, content_type="text/plain; charset=utf-8"):
+        body = text.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_session(self, query):
+        """Read-only transcript of one session: state.db first, legacy
+        sessions/<id>.jsonl as fallback (same precedence as the reader)."""
+        q = parse_qs(query)
+        agent = (q.get("agent") or [""])[0]
+        profile = (q.get("profile") or ["main"])[0]
+        sid = (q.get("id") or [""])[0]
+        agents = dict(discovery.list_agents(DATA_ROOT))
+        if agent not in agents or not re.match(r"^[A-Za-z0-9._-]+$", sid):
+            self.send_error(404, "Not found")
+            return
+        base = agents[agent]
+        if profile == "main":
+            pass
+        elif re.match(r"^[A-Za-z0-9._-]+$", profile):
+            base = os.path.join(base, "profiles", profile)
+        else:
+            self.send_error(404, "Not found")
+            return
+        db_path = os.path.join(base, "state.db")
+        if os.path.isfile(db_path):
+            try:
+                text = sessions.transcript(db_path, sid)
+            except Exception:
+                text = None
+            if text is not None:
+                self._send_text(text)
+                return
+        jsonl = os.path.join(base, "sessions", sid + ".jsonl")
+        if os.path.isfile(jsonl):
+            self._send_file(jsonl, "text/plain; charset=utf-8")
+            return
+        self.send_error(404, "Not found")
+
+    def _serve_task(self, query):
+        """Read-only dashboard-style card view of one kanban task."""
+        q = parse_qs(query)
+        agent = (q.get("agent") or [""])[0]
+        tid = (q.get("id") or [""])[0]
+        board = (q.get("board") or ["default"])[0]
+        agents = dict(discovery.list_agents(DATA_ROOT))
+        if (agent not in agents
+                or not re.match(r"^[A-Za-z0-9._-]+$", tid)
+                or not re.match(r"^[A-Za-z0-9._-]+$", board)):
+            self.send_error(404, "Not found")
+            return
+        try:
+            text = kanban.detail(agents[agent], tid, board=board)
+        except Exception:
+            text = None
+        if text is None:
+            self.send_error(404, "Not found")
+            return
+        self._send_text(text)
+
     def _serve_log(self, query):
         q = parse_qs(query)
         agent = (q.get("agent") or [""])[0]
@@ -224,6 +288,10 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_log(parsed.query)
         elif route == "/api/cron-run":
             self._serve_cron_run(parsed.query)
+        elif route == "/api/session":
+            self._serve_session(parsed.query)
+        elif route == "/api/task":
+            self._serve_task(parsed.query)
         elif route == "/api/file":
             self._serve_file(parsed.query)
         elif route in STATIC_FILES:

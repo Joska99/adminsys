@@ -223,8 +223,12 @@ document.addEventListener("keydown", (e) => {
 /* track which skill panels are open */
 document.addEventListener("toggle", (e) => {
   const d = e.target;
-  if (d.tagName === "DETAILS" && d.classList && d.classList.contains("skills") && d.dataset.agent) {
+  if (d.tagName !== "DETAILS") return;
+  if (d.classList && d.classList.contains("skills") && d.dataset.agent) {
     if (d.open) UI.openSkills.add(d.dataset.agent); else UI.openSkills.delete(d.dataset.agent);
+    saveUI();
+  } else if (d.dataset && d.dataset.ov) {   // overview sections + per-card cost details
+    if (d.open) UI.openOv.add(d.dataset.ov); else UI.openOv.delete(d.dataset.ov);
     saveUI();
   }
 }, true);
@@ -282,6 +286,16 @@ const MONS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OC
 setInterval(() => {
   if ($("tab-schedule").classList.contains("active")) renderSchedule();
 }, 15000);
+
+/* open the sidebar legend on the first visit so the shadow-color encoding is
+   discoverable; collapsed on every visit after (one-shot localStorage flag) */
+try {
+  if (!localStorage.getItem("adminsys.legendSeen")) {
+    const lg = document.querySelector(".legend");
+    if (lg) lg.open = true;
+    localStorage.setItem("adminsys.legendSeen", "1");
+  }
+} catch (e) {}
 
 /* restore the last tab: URL hash wins, else last-used, else overview */
 (function initTab() {

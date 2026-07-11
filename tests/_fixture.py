@@ -40,6 +40,30 @@ def _kanban_db(path):
             ("r2", "t1", "main", "failed", "bad", "broke", "2026-06-02T10:00:00", "2026-06-02T10:01:00", "boom"),
         ],
     )
+    # card-detail tables (subset of the real schema) for the /api/task view
+    conn.execute("CREATE TABLE task_comments (id INTEGER, task_id TEXT, author TEXT, "
+                 "body TEXT, created_at TEXT)")
+    conn.execute("INSERT INTO task_comments VALUES (1,'t1','default','created: build',"
+                 "'2026-06-01T09:59:00')")
+    conn.execute("CREATE TABLE task_events (id INTEGER, task_id TEXT, run_id TEXT, "
+                 "kind TEXT, payload TEXT, created_at TEXT)")
+    conn.execute("INSERT INTO task_events VALUES (1,'t1','r1','claimed',"
+                 "'{\"lock\":\"x\"}','2026-06-01T10:00:00')")
+    conn.commit()
+    conn.close()
+
+
+def _board_db(path):
+    """Named-board kanban.db (kanban/boards/<slug>/) with one done task."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE tasks (id TEXT, title TEXT, status TEXT)")
+    conn.execute("CREATE TABLE task_runs (id TEXT, task_id TEXT, profile TEXT, "
+                 "status TEXT, outcome TEXT, summary TEXT, started_at TEXT, "
+                 "ended_at TEXT, error TEXT)")
+    conn.execute("INSERT INTO tasks VALUES ('t2','render set','done')")
+    conn.execute("INSERT INTO task_runs VALUES ('r3','t2','cg','done','ok',"
+                 "'rendered','2026-06-03T10:00:00','2026-06-03T10:05:00',NULL)")
     conn.commit()
     conn.close()
 
@@ -54,6 +78,31 @@ def _response_db(path):
     conn.close()
 
 
+def _state_db(path):
+    """Minimal modern-Hermes state.db: sessions + messages (transcript source)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE sessions (id TEXT, started_at INTEGER, message_count INTEGER, "
+        "title TEXT, model TEXT, source TEXT, ended_at INTEGER, "
+        "estimated_cost_usd REAL, input_tokens INTEGER, output_tokens INTEGER)")
+    conn.execute(
+        "CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, "
+        "content TEXT, tool_name TEXT, timestamp INTEGER)")
+    conn.execute(
+        "INSERT INTO sessions VALUES ('20260603_120000_ccc', 1780500000, 2, "
+        "'beta test session', 'beta-model', 'cron', 1780500100, 0.01, 100, 50)")
+    conn.executemany(
+        "INSERT INTO messages (session_id, role, content, tool_name, timestamp) "
+        "VALUES (?,?,?,?,?)",
+        [
+            ("20260603_120000_ccc", "user", "hello beta", None, 1780500000),
+            ("20260603_120000_ccc", "assistant", "beta says hi", None, 1780500050),
+        ])
+    conn.commit()
+    conn.close()
+
+
 def build(root):
     """Populate `root` with agents: alpha (rich, +sub-profile beta) and empty."""
     a = os.path.join(root, "alpha")
@@ -63,9 +112,15 @@ def build(root):
         "platforms": {"discord": {"state": "connected"}},
         "exit_reason": None, "updated_at": FUTURE, "pid": 123,
     })
-    _w(os.path.join(a, "config.yaml"), "model:\n  default: test-model\n")
+    _w(os.path.join(a, "config.yaml"),
+       "model:\n  default: test-model\n  provider: test-prov\n")
 
     _kanban_db(os.path.join(a, "kanban.db"))
+    # named board a1k0 (kanban/boards/<slug>/) + the active-board marker
+    _board_db(os.path.join(a, "kanban", "boards", "a1k0", "kanban.db"))
+    _json(os.path.join(a, "kanban", "boards", "a1k0", "board.json"),
+          {"slug": "a1k0", "name": "A1k0", "icon": "🧚", "archived": False})
+    _w(os.path.join(a, "kanban", "current"), "a1k0")
     _response_db(os.path.join(a, "response_store.db"))
 
     _json(os.path.join(a, "cron", "jobs.json"), {"jobs": [{
@@ -113,6 +168,12 @@ def build(root):
     ]}})
     _json(os.path.join(b, "cron", "jobs.json"), {"jobs": [{"id": "job2", "name": "hourly"}]})
     _w(os.path.join(b, "skills", "research", "demo", "SKILL.md"), "---\nname: demo\n---\n")
+    # worker-side skill usage — the reader must merge this with the root file
+    _json(os.path.join(b, "skills", ".usage.json"), {
+        "gen": {"use_count": 3, "last_used_at": FUTURE, "state": "active"},
+        "reply": {"use_count": 2, "last_used_at": PAST},
+    })
+    _state_db(os.path.join(b, "state.db"))   # modern sessions backend + transcript
 
     # a plain folder with no hermes files (discovered, all readers unavailable)
     os.makedirs(os.path.join(root, "empty"), exist_ok=True)

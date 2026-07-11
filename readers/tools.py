@@ -1,8 +1,9 @@
-"""Tool-usage reader: runtime tool calls from <agent>/state.db messages.
+"""Tool-usage reader: runtime tool calls from state.db messages.
 
 Counts messages whose `tool_name` is set (tool-result rows) and ranks the most
-used tools. Complements the static skills inventory with what the agent actually
-calls at run time. Read-only, main profile only.
+used tools. Reads ONLY the given path's own state.db — profiles.py calls this
+once per profile (agent root = main, profiles/<p> = workers), so every block
+shows that profile's usage and nothing else. Read-only.
 """
 
 import os

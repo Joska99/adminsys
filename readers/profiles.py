@@ -17,14 +17,15 @@ from . import (sessions as r_sessions, tools as r_tools, skills as r_skills,
 
 
 def _model_from_config(config_path):
-    """Pull model.default from a Hermes config.yaml without a YAML parser."""
+    """Pull model.default (+ provider) from a Hermes config.yaml without a
+    YAML parser. Returns "provider:model" when both are set, else the model."""
     try:
         with open(config_path, "r", encoding="utf-8") as fh:
             lines = fh.readlines()
     except OSError:
         return None
 
-    in_model = False
+    in_model, model, provider = False, None, None
     for raw in lines:
         line = raw.rstrip("\n")
         if not line.strip() or line.lstrip().startswith("#"):
@@ -32,6 +33,8 @@ def _model_from_config(config_path):
         indent = len(line) - len(line.lstrip())
         stripped = line.strip()
         if indent == 0:
+            if in_model:
+                break                     # left the model block — done
             in_model = stripped.startswith("model:")
             # single-line form: "model: foo"
             if in_model and ":" in stripped:
@@ -40,12 +43,16 @@ def _model_from_config(config_path):
                     return val
             continue
         if in_model and stripped.startswith("default:"):
-            return stripped.split(":", 1)[1].strip() or None
-    return None
+            model = stripped.split(":", 1)[1].strip() or None
+        elif in_model and stripped.startswith("provider:"):
+            provider = stripped.split(":", 1)[1].strip().strip("'\"") or None
+    if model and provider:
+        return "{}:{}".format(provider, model)
+    return model
 
 
 def agent_default_model(agent_path):
-    """Default model from the agent root config.yaml, or None."""
+    """Default model (as "provider:model" when known) from the root config."""
     return _model_from_config(os.path.join(agent_path, "config.yaml"))
 
 
@@ -197,7 +204,7 @@ def _profile(name, base_path):
         "vault": r_vault.read(base_path),
         "kanban": r_kanban.read(base_path),
         "logs": r_logs.read(base_path),
-        "recent_sessions": (sess.get("recent") or [])[:5],
+        "recent_sessions": (sess.get("recent") or [])[:15],
     }
 
 

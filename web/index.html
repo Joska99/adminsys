@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Hermes Mission Control</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FF3E00'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='17' font-weight='bold' fill='%23000' text-anchor='middle'%3E%23_%3C/text%3E%3C/svg%3E" />
-<script>try{if(localStorage.theme==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
+<script>try{if(localStorage.theme==='dark'||(!localStorage.theme&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}</script>
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -46,6 +46,7 @@
         </div>
       </div>
       <div class="spacer"></div>
+      <span class="fa-anchor"><span id="filteractive" class="filteractive" hidden></span></span>
       <span class="mono hlabel">filters</span>
       <div class="hfilters">
         <button id="f-active" class="filterbtn mono">running</button>
@@ -66,7 +67,6 @@
       </div>
       <span class="hsep">|</span>
       <button id="theme-toggle" class="filterbtn mono" type="button" title="toggle light / dark theme">dark</button>
-      <span id="filteractive" class="filteractive" hidden></span>
     </header>
     <div id="conn-banner" class="connbanner" role="alert" hidden></div>
 

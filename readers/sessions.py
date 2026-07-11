@@ -137,6 +137,40 @@ def _read_db(db_path):
         con.close()
 
 
+def transcript(db_path, session_id):
+    """Plain-text transcript of one session from state.db, or None if the id
+    is unknown. Serves the dashboard's read-session link; content comes back
+    as-is (the dashboard renders it inside a text/plain response)."""
+    con = _connect_ro(db_path)
+    try:
+        row = con.execute(
+            "SELECT id, title, model, source, started_at FROM sessions WHERE id = ?",
+            (session_id,)).fetchone()
+        if row is None:
+            return None
+        out = [
+            "session {}".format(row[0]),
+            "title:   {}".format(row[1] or "-"),
+            "model:   {}".format(row[2] or "?"),
+            "source:  {}".format(row[3] or "?"),
+            "started: {}".format(_iso(row[4]) or "?"),
+            "=" * 72,
+            "",
+        ]
+        for role, content, tool_name, ts in con.execute(
+                "SELECT role, content, tool_name, timestamp FROM messages "
+                "WHERE session_id = ? ORDER BY id", (session_id,)):
+            head = "── [{}] {}".format(_iso(ts) or "?", role or "?")
+            if tool_name:
+                head += " ({})".format(tool_name)
+            out.append(head)
+            out.append(content or "")
+            out.append("")
+        return "\n".join(out)
+    finally:
+        con.close()
+
+
 # ── legacy *.jsonl backend (older agents / test fixtures) ────────────────────
 
 def _started_at(filename):

@@ -15,9 +15,9 @@ test("KPI row shows 12 boxes in the top grid", async ({ page }) => {
 });
 
 test("only the clickable KPI boxes carry the link badge", async ({ page }) => {
-  // 4 clickable boxes: agents, profiles, cron jobs, sessions (failed crons is not a button)
-  await expect(page.locator(".kpi.clickable")).toHaveCount(4);
-  await expect(page.locator(".kpi.clickable .kpi-link")).toHaveCount(4);
+  // 5 clickable boxes: agents, profiles, cron jobs, kanban tasks, sessions
+  await expect(page.locator(".kpi.clickable")).toHaveCount(5);
+  await expect(page.locator(".kpi.clickable .kpi-link")).toHaveCount(5);
   // non-clickable boxes have no link badge
   await expect(page.locator(".kpi:not(.clickable) .kpi-link")).toHaveCount(0);
 });

@@ -101,6 +101,7 @@ tab("overview", ov.renderOverview, "tab-overview", [
   ["sessions", "KPI: sessions"],
   ["cron jobs", "KPI: cron jobs"],
   ["kanban tasks", "KPI: kanban tasks"],
+  ["tokens 7d", "KPI: tokens 7d"],
   ["blocked tasks", "KPI: blocked tasks"],
   ["crashed tasks", "KPI: crashed tasks"],
   ["failed crons", "KPI: failed crons"],
@@ -113,6 +114,7 @@ tab("overview", ov.renderOverview, "tab-overview", [
   // card content
   ["alpha", "agent card name"],
   ["test-model", "card model pill"],
+  ["spend 7d", "KPI: spend 7d"],
   ['data-goto="profiles"', "profiles KPI box links to Profiles tab"],
 ]);
 

@@ -13,6 +13,7 @@ export const UI = {
   taskSort: { key: "started_at", dir: -1 },
   schedSort: { key: "next_run_at", dir: 1 },
   openSkills: new Set(),
+  openOv: new Set(),  // open <details data-ov> on Overview (sections + per-card cost)
   profSel: {},        // per-card selected profile ("section:agent" -> name | "__all")
   profGlobal: null,   // global override for every card: null | name | "__all"
 };
@@ -25,7 +26,7 @@ export function saveUI() {
       fActive: UI.fActive, fStopped: UI.fStopped, fCron: UI.fCron,
       logErr: UI.logErr, logWarn: UI.logWarn, taskStatus: UI.taskStatus,
       taskSort: UI.taskSort, schedSort: UI.schedSort,
-      openSkills: [...UI.openSkills], selected: [...SELECTED],
+      openSkills: [...UI.openSkills], openOv: [...UI.openOv], selected: [...SELECTED],
       profSel: UI.profSel, profGlobal: UI.profGlobal,
     }));
   } catch (e) {}
@@ -39,6 +40,7 @@ function loadUI() {
   if (o.taskSort && o.taskSort.key) UI.taskSort = o.taskSort;
   if (o.schedSort && o.schedSort.key) UI.schedSort = o.schedSort;
   if (Array.isArray(o.openSkills)) UI.openSkills = new Set(o.openSkills);
+  if (Array.isArray(o.openOv)) UI.openOv = new Set(o.openOv);
   if (o.profSel && typeof o.profSel === "object") UI.profSel = o.profSel;
   if (typeof o.profGlobal === "string") UI.profGlobal = o.profGlobal;
   if (Array.isArray(o.selected)) o.selected.forEach(n => SELECTED.add(n));

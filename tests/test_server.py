@@ -128,6 +128,58 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"run report", body)
 
+    def test_task_card_detail(self):
+        status, ct, body = self.get("/api/task?agent=alpha&id=t1")
+        self.assertEqual(status, 200)
+        self.assertIn("text/plain", ct)
+        self.assertIn(b"title:    build", body)
+        self.assertIn(b"created: build", body)     # comment
+        self.assertIn(b"claimed", body)            # event
+        self.assertIn(b"outcome: bad", body)       # run
+        self.assertIn(b"error: boom", body)
+
+    def test_task_card_named_board(self):
+        status, _, body = self.get("/api/task?agent=alpha&board=a1k0&id=t2")
+        self.assertEqual(status, 200)
+        self.assertIn(b"render set", body)
+        self.assertIn(b"outcome: ok", body)
+        # same id on the default board -> 404 (it only exists on a1k0)
+        status, _, _ = self.get("/api/task?agent=alpha&id=t2")
+        self.assertEqual(status, 404)
+        status, _, _ = self.get("/api/task?agent=alpha&board=../../etc&id=t2")
+        self.assertEqual(status, 404)
+
+    def test_task_unknown_id_404(self):
+        status, _, _ = self.get("/api/task?agent=alpha&id=t_nope")
+        self.assertEqual(status, 404)
+        status, _, _ = self.get("/api/task?agent=alpha&id=../../etc")
+        self.assertEqual(status, 404)
+
+    def test_session_transcript_state_db(self):
+        status, ct, body = self.get(
+            "/api/session?agent=alpha&profile=beta&id=20260603_120000_ccc")
+        self.assertEqual(status, 200)
+        self.assertIn("text/plain", ct)
+        self.assertIn(b"beta test session", body)
+        self.assertIn(b"hello beta", body)
+        self.assertIn(b"beta says hi", body)
+
+    def test_session_transcript_legacy_jsonl(self):
+        status, ct, body = self.get(
+            "/api/session?agent=alpha&profile=main&id=20260601_100000_aaa")
+        self.assertEqual(status, 200)
+        self.assertIn(b"meta", body)
+
+    def test_session_unknown_id_404(self):
+        status, _, _ = self.get("/api/session?agent=alpha&profile=beta&id=nope")
+        self.assertEqual(status, 404)
+
+    def test_session_traversal_blocked(self):
+        status, _, _ = self.get("/api/session?agent=alpha&profile=main&id=../../.env")
+        self.assertEqual(status, 404)
+        status, _, _ = self.get("/api/session?agent=alpha&profile=../../etc&id=x")
+        self.assertEqual(status, 404)
+
     # ---- security / 404s ----
     def test_js_path_traversal_blocked(self):
         status, _, _ = self.get("/js/../server.py")

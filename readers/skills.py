@@ -55,7 +55,11 @@ def read(agent_path):
 
 
 def _used(agent_path):
-    """All used skills (use_count > 0) sorted by count, from skills/.usage.json."""
+    """All used skills (use_count > 0) sorted by count, from skills/.usage.json.
+
+    Reads ONLY this path's own usage file — profiles.py calls this once per
+    profile (agent root = main, profiles/<p> = workers), so every block shows
+    that profile's usage and nothing else."""
     path = os.path.join(agent_path, "skills", ".usage.json")
     try:
         with open(path, "r", encoding="utf-8") as fh:

@@ -86,14 +86,29 @@ class ReaderTests(unittest.TestCase):
     def test_kanban_runs(self):
         k = kanban.read(self.alpha)
         self.assertTrue(k["available"])
-        self.assertEqual(len(k["runs"]), 2)
+        self.assertEqual(len(k["runs"]), 3)     # flat view = merged across boards
         states = {r["status"] for r in k["runs"]}
-        self.assertEqual(states, {"running", "failed"})
+        self.assertEqual(states, {"running", "failed", "done"})
         failed = next(r for r in k["runs"] if r["status"] == "failed")
         self.assertEqual(failed["error"], "boom")
-        self.assertEqual(len(k["tasks"]), 1)
-        self.assertEqual(k["tasks_total"], 1)   # COUNT(*), not capped list len
-        self.assertEqual(k["runs_total"], 2)
+        boards_seen = {r["board"] for r in k["runs"]}
+        self.assertEqual(boards_seen, {"default", "a1k0"})
+        self.assertEqual(len(k["tasks"]), 2)    # merged: one per board
+        self.assertEqual(k["tasks_total"], 2)   # aggregated: default (1) + a1k0 (1)
+        self.assertEqual(k["runs_total"], 3)    # 2 + 1
+
+    def test_kanban_boards(self):
+        k = kanban.read(self.alpha)
+        by = {b["name"]: b for b in k["boards"]}
+        self.assertEqual(set(by), {"default", "a1k0"})
+        self.assertEqual(k["current"], "a1k0")
+        self.assertEqual(by["a1k0"]["title"], "A1k0")
+        self.assertEqual(by["a1k0"]["tasks_total"], 1)
+        self.assertEqual(by["a1k0"]["runs"][0]["summary"], "rendered")
+        self.assertEqual(by["default"]["tasks_total"], 1)
+        # per-board card detail resolves through the board's own db
+        self.assertIn("render set", kanban.detail(self.alpha, "t2", board="a1k0"))
+        self.assertIsNone(kanban.detail(self.alpha, "t2", board="default"))
 
     def test_kanban_unavailable(self):
         self.assertFalse(kanban.read(self.empty)["available"])
@@ -124,7 +139,7 @@ class ReaderTests(unittest.TestCase):
         self.assertTrue(p["available"])
         by = {pr["name"]: pr for pr in p["profiles"]}
         self.assertEqual(set(by), {"main", "beta"})
-        self.assertEqual(by["main"]["model"], "test-model")
+        self.assertEqual(by["main"]["model"], "test-prov:test-model")
         self.assertEqual(by["main"]["state"], "running")
         self.assertEqual(by["main"]["sessions"], 2)
         self.assertEqual(len(by["main"]["channels"]["channels"]), 1)
@@ -132,7 +147,9 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(by["main"]["channels"]["threads"], 1)
         self.assertEqual(by["beta"]["model"], "beta-model")
         self.assertEqual(by["beta"]["state"], "stopped")
-        self.assertEqual(by["beta"]["sessions"], 0)
+        self.assertEqual(by["beta"]["sessions"], 1)   # fixture beta state.db
+        self.assertEqual(by["beta"]["recent_sessions"][0]["id"], "20260603_120000_ccc")
+        self.assertEqual(by["beta"]["recent_sessions"][0]["source"], "cron")
         self.assertEqual(by["beta"]["description"], "Beta sub-profile for tests")
         self.assertTrue(by["beta"]["has_soul"])
         self.assertFalse(by["main"]["has_soul"])  # root fixture has no SOUL.md
@@ -143,7 +160,7 @@ class ReaderTests(unittest.TestCase):
         self.assertIsNone(by["main"]["description"])  # root has no profile.yaml
 
     def test_default_model_helper(self):
-        self.assertEqual(profiles.agent_default_model(self.alpha), "test-model")
+        self.assertEqual(profiles.agent_default_model(self.alpha), "test-prov:test-model")
 
     def test_skills_used_and_total(self):
         sk = skills.read(self.alpha)
@@ -152,8 +169,17 @@ class ReaderTests(unittest.TestCase):
         used = {u["name"]: u for u in sk["used"]}
         self.assertIn("gen", used)
         self.assertNotIn("unused", used)  # use_count 0 dropped
+        # main shows ONLY its own usage — beta's counts must NOT leak in
         self.assertEqual(used["gen"]["count"], 5)
+        self.assertNotIn("reply", used)   # beta-only skill stays out of main
         self.assertLessEqual(len(sk["top_used"]), 10)
+
+    def test_skills_used_per_profile(self):
+        # the beta profile block reads its own usage file, isolated from main
+        sk = skills.read(os.path.join(self.alpha, "profiles", "beta"))
+        used = {u["name"]: u for u in sk["used"]}
+        self.assertEqual(used["gen"]["count"], 3)
+        self.assertEqual(used["reply"]["count"], 2)
 
     def test_logs_levels(self):
         lg = logs.read(self.alpha)
@@ -223,6 +249,14 @@ class ReaderTests(unittest.TestCase):
         self.assertAlmostEqual(s["cost_7d"], 3.0)
         self.assertEqual(s["by_source"], {"cron": 1, "discord": 2})  # lowercased
 
+    def test_sessions_transcript(self):
+        db = os.path.join(self.alpha, "profiles", "beta", "state.db")
+        text = sessions.transcript(db, "20260603_120000_ccc")
+        self.assertIn("beta test session", text)
+        self.assertIn("hello beta", text)
+        self.assertIn("beta says hi", text)
+        self.assertIsNone(sessions.transcript(db, "nope"))
+
     def test_profiles_session_count_from_state_db(self):
         d = tempfile.mkdtemp(prefix="admsys-psdb-")
         self.addCleanup(shutil.rmtree, d, ignore_errors=True)
@@ -238,11 +272,18 @@ class ReaderTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, d, ignore_errors=True)
         _messages_db(os.path.join(d, "state.db"),
                      ["terminal", "terminal", "search", "", None])
+        # worker profile DB — must NOT leak into main's counters
+        _messages_db(os.path.join(d, "profiles", "cc", "state.db"),
+                     ["terminal", "write_file"])
         t = tools.read(d)
         self.assertTrue(t["available"])
-        self.assertEqual(t["total"], 3)        # 3 tool rows, 2 non-tool ignored
+        self.assertEqual(t["total"], 3)        # main only: 3 tool rows
         self.assertEqual(t["distinct"], 2)
         self.assertEqual(t["top"][0], {"name": "terminal", "count": 2})
+        # the profile's own read stays isolated too
+        tp = tools.read(os.path.join(d, "profiles", "cc"))
+        self.assertEqual(tp["total"], 2)
+        self.assertEqual(tp["distinct"], 2)
 
     def test_disk_footprint(self):
         d = disk._scan(self.alpha)          # synchronous scan (read() is async-cached)
